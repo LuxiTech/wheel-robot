@@ -1,0 +1,10 @@
+# Optional local desktop access; base services stay headless and offline.
+services:
+  isaac-sim:
+    command: [/workspace/scripts/view_scene.py]
+    environment:
+      DISPLAY: ${DISPLAY:?Run simctl gui from a desktop terminal}
+      XAUTHORITY: /tmp/wheel-robot.Xauthority
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ./.runtime/gui/Xauthority:/tmp/wheel-robot.Xauthority:ro

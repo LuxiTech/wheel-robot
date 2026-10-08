@@ -1,0 +1,25 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+
+# External models, generated scenes, recordings, and third-party sources
+/assets/
+/video/
+/third_party/
+
+# Runtime data, downloads, and reports
+/.cache/
+/.runtime/
+/outputs/
+
+# Python and editor caches
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store

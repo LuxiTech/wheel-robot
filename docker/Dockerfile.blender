@@ -1,0 +1,14 @@
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates xz-utils libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+    libgl1 libegl1 libxkbcommon0 libsm6 libice6 libgomp1 python3 \
+    && rm -rf /var/lib/apt/lists/*
+COPY .cache/downloads/blender-4.5.3-linux-x64.tar.xz /tmp/blender.tar.xz
+RUN echo '975c58fcb244273838534bba771e64ad87739216b0f9b39a888531a49a72d845  /tmp/blender.tar.xz' | sha256sum -c - \
+    && mkdir /opt/blender && tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender \
+    && rm /tmp/blender.tar.xz
+ENV HOME=/tmp/blender-home
+WORKDIR /workspace
+ENTRYPOINT ["/opt/blender/blender", "--background", "--factory-startup"]
+CMD ["--python", "/workspace/scripts/build_scene.py"]

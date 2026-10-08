@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双机仿真控制台</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,"Noto Sans SC",system-ui,sans-serif;color:#e5eaf0;background:#0c1118}*{box-sizing:border-box}body{margin:0}header{padding:22px 4vw;border-bottom:1px solid #27313d;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-size:12px;letter-spacing:3px;color:#8494a8}.brand strong{display:block;color:#f5f7fa;font-size:18px;letter-spacing:0;margin-top:8px}.badge{border:1px solid #374352;border-radius:30px;padding:8px 14px;font-size:12px;color:#aebaca}.badge.live{color:#69dfb2;border-color:#246f54;background:#123025}main{max-width:1700px;margin:auto;padding:36px 4vw}h1{font-size:32px;font-weight:600;margin:0 0 12px}p{color:#95a4b7;line-height:1.7}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:28px 0 18px}.metrics{display:flex;gap:26px;font-size:13px;color:#9eacc0}.metrics b{color:#eef4fa;font-weight:500}button,select{font:inherit;border:1px solid #364252;color:#dfe8f1;background:#192330;border-radius:8px;padding:10px 16px;cursor:pointer}button:hover{background:#263447}button:focus-visible,select:focus-visible{outline:2px solid #69dfb2;outline-offset:3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}.camera{background:#141c27;border:1px solid #2a3645;border-radius:14px;overflow:hidden}.camera header{padding:18px 20px}.identity{display:flex;align-items:center;gap:12px}.letter{width:36px;height:36px;border-radius:9px;background:#263d50;color:#80c6ef;display:grid;place-items:center}.camera:nth-child(2) .letter{background:#403820;color:#e7c976}h2{margin:0;font-size:17px}.role{font-size:12px;color:#899baf;margin-top:4px}.picture{position:relative;aspect-ratio:16/9;background:#080c12;display:grid;place-items:center;overflow:hidden}.picture img{width:100%;height:100%;object-fit:contain;position:absolute}.shade{position:absolute;inset:0;display:grid;place-items:center;background:#080c12c9;color:#b4c2d3;z-index:1}.shade.hidden{display:none}.camera footer{padding:15px 20px;display:flex;justify-content:space-between;align-items:center;color:#8fa2b9;font-size:12px}.camera footer button{font-size:12px;padding:7px 12px}.hint{margin-top:24px;font-size:12px;color:#7f90a6}.camera:fullscreen{border:0;border-radius:0;display:flex;flex-direction:column}.camera:fullscreen .picture{flex:1;aspect-ratio:auto}.single{grid-template-columns:1fr;max-width:1200px;margin:auto}[hidden]{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.toolbar{align-items:flex-start;flex-direction:column}h1{font-size:26px}.metrics{flex-wrap:wrap;gap:14px}header{padding:18px}main{padding:26px 18px}}
+.operations{margin-top:24px;border:1px solid #2a3645;border-radius:14px;padding:22px;background:#141c27}.operation-head{display:flex;justify-content:space-between;gap:16px;align-items:center}.action-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0}.action-row label{color:#aebaca;font-size:13px}input{width:75px;font:inherit;padding:10px;background:#192330;color:#fff;border:1px solid #364252;border-radius:8px}.primary{background:#1d624e}.danger{background:#6b3039}.manual-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.manual-box{border-top:1px solid #2a3645;padding-top:18px}.manual-box h3{margin:0 0 10px;font-size:16px}button:disabled{opacity:.4;cursor:not-allowed}.status-line{font-size:13px;color:#aebaca;line-height:1.9}#feedback{min-height:24px;color:#78dcb5}#task-error{color:#f5b5a6}.history{font-size:12px;color:#aebaca;line-height:1.8;max-height:140px;overflow:auto}@media(max-width:850px){.manual-grid{grid-template-columns:1fr}.operation-head{align-items:flex-start;flex-direction:column}}</style></head><body>
+<header><div class="brand">轮式机器人 · 双机协作<strong>双机仿真 · 操作控制台</strong></div><span id="connection" class="badge" role="status">等待仿真连接</span></header>
+<main><h1>看见每台机器人的前方</h1><p>机器人甲与机器人乙 的随车第一视角，同屏观察取箱、交接与码垛区域。</p>
+<div class="toolbar"><div class="metrics"><span>在线相机 <b id="count">0 / 2</b></span><span>最近画面时间 <b id="sim">—</b></span><span>画面规格 <b>640 × 360</b></span></div><label>视图 <select id="layout"><option value="all">双机同屏</option><option value="Robot_A">仅机器人甲</option><option value="Robot_B">仅机器人乙</option></select></label></div>
+<div class="grid" id="grid"></div><p class="hint">车体固定前向虚拟相机 · 变化时推送 · 静止时不刷新 · 相机随底盘移动和转向 · 单路可放大全屏<br>所有机器人操作均在本页完成。灰色遮罩表示画面不可用或连接中断。</p><section class="operations"><div class="operation-head"><h2>任务与环境控制</h2><span id="mode-label" class="badge">等待连接</span></div>
+<div class="action-row"><label>模式 <select id="mode"><option value="manual">手动调试</option><option value="relay">自动接力</option></select></label><label>搬运箱数 <input id="box-count" type="number" min="1" max="18" value="18"></label><button id="apply-mode" data-action="mode">切换模式并复位</button></div>
+<div class="action-row"><button data-action="start" class="primary">启动自动任务</button><button data-action="stop" class="danger">停止机器人并保持</button><button data-action="reset">复位整个环境</button></div>
+<div class="status-line" id="task-state">等待仿真状态</div><div class="status-line" id="ik-state">逆运动学：待任务启动</div><div class="status-line" id="pusher-state">交接区尚未连接</div><p id="task-error" role="alert"></p>
+<div class="action-row"><button data-action="load" data-slot="0">演示放箱到左侧</button><button data-action="load" data-slot="1">演示放箱到右侧</button></div>
+<div class="manual-grid" id="manual-controls"></div><div class="action-row" id="navigation-controls" hidden></div>
+<p class="hint">切换模式会复位机器人和箱子。手动调试支持独立夹爪与升降操作；自动接力期间禁用手动操作。停止机器人不会关闭仿真，推箱机构继续遵循交接区互锁。</p>
+<p id="feedback" role="status" aria-live="polite">等待仿真连接</p><div class="history" id="history"></div></section></main>
+<script>
+const $=id=>document.getElementById(id), channels=new Map();
+for(const [id,role] of [['Robot_A','源垛 → 交接区'],['Robot_B','交接区 → 目标垛']]){
+ const card=document.createElement('section');card.className='camera';
+ card.innerHTML=`<header><div class="identity"><span class="letter">${id==='Robot_A'?'甲':'乙'}</span><div><h2>${id==='Robot_A'?'机器人甲':'机器人乙'}</h2><div class="role">${role}</div></div></div><span class="badge">等待画面</span></header><div class="picture"><img alt="${id==='Robot_A'?'机器人甲':'机器人乙'}第一视角" hidden><div class="shade">等待相机画面…</div></div><footer><span class="state">尚未连接</span><button type="button">放大画面 ⛶</button></footer>`;
+ $('grid').append(card);
+ const item={card,img:card.querySelector('img'),shade:card.querySelector('.shade'),badge:card.querySelector('.badge'),state:card.querySelector('.state'),busy:false,loaded:false,online:false,version:null,wanted:null,inflight:null,url:null};channels.set(id,item);
+ item.img.onload=()=>{item.busy=false;item.loaded=true;item.version=item.inflight;item.img.hidden=false;item.shade.classList.toggle('hidden',item.online);loadFrame(item)};
+ item.img.onerror=()=>{item.busy=false;item.loaded=false;item.shade.classList.remove('hidden');item.shade.textContent='画面加载失败，等待下次更新或重新选择视图…'};
+ card.querySelector('button').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await card.requestFullscreen()}catch(e){$('feedback').textContent='浏览器未能进入全屏，请使用上方单机视图。'}};
+}
+$('layout').onchange=()=>{for(const [id,c]of channels)c.card.hidden=$('layout').value!=='all'&&$('layout').value!==id;$('grid').classList.toggle('single',$('layout').value!=='all');for(const c of channels.values())loadFrame(c)};
+function loadFrame(c){
+ if(!c.online||c.busy||document.hidden||c.card.hidden||!c.wanted||c.version===c.wanted)return;
+ c.busy=true;c.inflight=c.wanted;c.img.src=c.url;
+}
+function render(s){
+ current=s;renderOperations();
+ $('connection').textContent=s.connected?'仿真已连接 · 按需更新':'仿真未连接';$('connection').classList.toggle('live',!!s.connected);
+ $('count').textContent=`${(s.cameras||[]).filter(c=>c.online).length} / 2`;$('sim').textContent=s.connected?`${s.simulation_seconds.toFixed(1)} 秒`:'—';
+ for(const [id,c]of channels){
+  const data=(s.cameras||[]).find(x=>x.id===id);c.online=!!data?.online;c.badge.textContent=c.online?'已连接':'离线';c.badge.classList.toggle('live',c.online);c.state.textContent=stateName(data?.state);
+  c.shade.classList.toggle('hidden',c.online&&c.loaded);if(!c.online)c.shade.textContent=s.connected?'相机暂不可用，等待恢复…':'连接已断开，等待仿真…';
+  if(data){c.wanted=s.session+':'+data.version;c.url=data.url+'?session='+encodeURIComponent(s.session)+'&v='+data.version;loadFrame(c)}
+ }
+}
+
+const stateNames={IDLE:'待机',START:'任务启动',PREGRASP_REJECTED:'抓取对准检查未通过',VERIFY_PREGRASP:'确认抓点与底盘稳定',RETRY_HANDOFF_GRASP:'松爪退让后重新对准',WAIT_RIGHT:'等待右侧来箱',RAISE_FOR_HANDOFF:'抬升准备交接',PREPARE_HANDOFF_GRASP:'准备交接抓取',ASSISTED_GRASP:'辅助抓取',DIRECT_GRASP:'直接抓取',SINGLE_END_LIFT:'单端向侧上方提拉',SECOND_HAND_JOIN:'另一夹爪接入箱边中心',SECOND_HAND_JOIN_VERIFIED:'双爪连续夹持已确认',SUPPORTED_REGRASP:'调整另一端夹持',SUPPORTED_RELEASE_READY:'准备松爪',TEST_LIFT:'试提验证',GRASP_VERIFIED:'抓取已确认',PLACE_APPROACH:'接近放置位置',PUSH_IN:'推入箱子',PUSH_POSITION_REACHED:'已推到目标位置',VERIFY_PLACEMENT:'验证放置',FIXTURE_IDLE:'等待测试',NAVIGATE_SOURCE:'前往源垛',SKILL_COMPLETE:'抓取测试完成',BASE_RETREAT_WITH_LOAD:'保持夹持直线退场',PREPARE_RETREAT_CARRY:'腰臂协调调整搬运姿态',RETRACT_FOR_RETREAT:'持箱内收准备退场',CARRY_TO_LEFT:'搬往左侧交接区',CARRY_TO_RIGHT:'搬往右侧交接区',HOLD_WAIT:'持箱等待',DOCK_HANDOFF_LEFT:'对接左侧交接区',COMPLETE:'任务完成',DOCK_HANDOFF_RIGHT:'对接右侧交接区',CARRY_TO_TARGET:'搬往目标垛',BOX_COMPLETE:'单箱完成',STOW:'收臂',PARKED:'停放',WAIT_LOCALIZATION:'等待定位',NAVIGATION_COMPLETE:'导航完成',ASTAR_NAVIGATE:'导航中',GOAL_REACHED:'已到工位',SENSOR_FAULT:'传感器故障',STOPPED:'已停止',FAULT:'故障',WAITING:'等待',BLOCKED:'通道受阻',PUSHING:'推箱中',RETURNING:'回撤中'};
+function stateName(value){return stateNames[value]||(/^[\u3400-\u9fff]/.test(value||'')?value:(value?'执行中':'尚未连接'))}
+function chineseMessage(value){return /[a-zA-Z]{3,}/.test(value||'')?'操作未完成，请检查仿真运行日志。':value}
+let current=null,pending=null,pendingTimer=null,seenResult=null,goalSignature='';
+for(const [id,name]of [['Robot_A','机器人甲'],['Robot_B','机器人乙']]){
+ const box=document.createElement('div');box.className='manual-box';box.innerHTML=`<h3>${name} · <span id="lift-${id}">升降未连接</span></h3>`;
+ for(const [side,label]of [['left','左夹爪'],['right','右夹爪']]){const row=document.createElement('div');row.className='action-row';row.innerHTML=`<span>${label}</span><button data-action="gripper" data-robot="${id}" data-side="${side}" data-closed="false">打开</button><button data-action="gripper" data-robot="${id}" data-side="${side}" data-closed="true">闭合</button><span class="status-line" id="grip-${id}-${side}"></span>`;box.append(row)}
+ const lifts=document.createElement('div');lifts.className='action-row';lifts.innerHTML=`<button data-action="lift" data-robot="${id}" data-height="0.15">升降至十五厘米</button><button data-action="lift" data-robot="${id}" data-height="0.35">升降至三十五厘米</button>`;box.append(lifts);$('manual-controls').append(box);
+}
+function renderOperations(){
+ const op=current?.operator,connected=!!current?.connected&&!!op;
+ if(pending?.id){const result=op?.results?.find(r=>r.id===pending.id);if(result){clearTimeout(pendingTimer);pending=null;$('feedback').textContent=chineseMessage(result.message)}}
+ for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action;let off=!connected||!!pending;if(a==='stop')off=!connected;else if(['gripper','lift','load'].includes(a))off ||=op?.mode!=='manual';else if(a==='start')off ||=op?.mode==='manual'||op?.active||op?.finished;else if(a==='mode')off ||=op?.active||op?.mode==='navigation';else if(['goal','tour'].includes(a))off ||=op?.mode!=='navigation'||op?.active;b.disabled=!!off}
+ $('mode').disabled=$('box-count').disabled=!connected||!!pending||op?.active||op?.mode==='navigation';
+ $('mode-label').textContent=connected?({manual:'手动调试',relay:'自动接力',navigation:'自动导航'}[op.mode]):'未连接';
+ $('task-state').textContent=connected?`任务状态：${op.active?'执行中':op.finished?'已结束':'待机'}　已完成：${op.completed} / ${op.count} 箱`:'等待仿真状态';
+ $('task-error').textContent=op?.error?'任务发生故障，已停止。请复位后重试；详细原因见仿真日志。':'';
+ const ik=op?.ik;$('ik-state').textContent=ik?`逆运动学：${ik.backend==='cuda'?'显卡计算':'处理器计算'}　平均求解：${ik.calls?(1000*ik.seconds/ik.calls).toFixed(1):'0.0'} 毫秒　缓存命中：${ik.cache_hits||0}`:'逆运动学：待任务启动';
+ const p=op?.pusher;$('pusher-state').textContent=p?`推箱机构：${stateName(p.state)}　左侧：${p.left?'有箱':'空'}　右侧：${p.right?'有箱':'空'}　已推送：${p.completed} 箱`:'交接区尚未连接';
+ for(const [id,r]of Object.entries(op?.robots||{})){$('lift-'+id).textContent=`当前高度 ${(r.lift*100).toFixed(1)} 厘米`;for(const side of ['left','right'])$('grip-'+id+'-'+side).textContent='目标：'+(r.targets[side]>.3?'闭合':'打开')}
+ const signature=JSON.stringify(op?.goals||[]);if(signature!==goalSignature){goalSignature=signature;$('navigation-controls').replaceChildren();(op?.goals||[]).forEach((goal,i)=>{const b=document.createElement('button');b.textContent=`前往工位${i+1}`;b.dataset.action='goal';b.dataset.goal=goal;$('navigation-controls').append(b)});if(op?.goals?.length){const b=document.createElement('button');b.textContent='重新开始全工位巡航';b.dataset.action='tour';$('navigation-controls').append(b)}}
+ $('navigation-controls').hidden=op?.mode!=='navigation';for(const b of $('navigation-controls').querySelectorAll('button'))b.disabled=!connected||!!pending||op?.active;
+ const latest=op?.results?.at(-1);if(latest&&latest.id!==seenResult){seenResult=latest.id;const entry=document.createElement('div');entry.textContent=(latest.ok?'已执行：':'未执行：')+chineseMessage(latest.message);$('history').prepend(entry);while($('history').children.length>8)$('history').lastChild.remove()}
+}
+document.addEventListener('click',async e=>{
+ const button=e.target.closest('[data-action]');if(!button||button.disabled)return;
+ const d=button.dataset,cmd={action:d.action,session:current.session};
+ if(d.robot)cmd.robot=d.robot;if(d.side)cmd.side=d.side;if(d.closed!==undefined)cmd.closed=d.closed==='true';if(d.height)cmd.height=Number(d.height);if(d.slot!==undefined)cmd.slot=Number(d.slot);if(d.goal)cmd.goal=d.goal;
+ if(d.action==='mode'){cmd.mode=$('mode').value;cmd.count=Number($('box-count').value)}
+ clearTimeout(pendingTimer);const request={id:null};pending=request;$('feedback').textContent='正在发送操作…';renderOperations();
+ try{const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cmd),signal:AbortSignal.timeout(5000)});const result=await response.json();if(!response.ok)throw Error(result.error);if(pending!==request)return;request.id=result.id;$('feedback').textContent=result.message;renderOperations();if(pending)pendingTimer=setTimeout(()=>{pending=null;$('feedback').textContent='尚未收到执行确认，请查看状态后再操作。';renderOperations()},12000)}catch(error){if(pending!==request)return;pending=null;$('feedback').textContent=chineseMessage(error.message);renderOperations()}
+});
+
+let events=null;
+function connect(){
+ if(document.hidden||events)return;
+ events=new EventSource('/api/events');
+ events.onmessage=e=>{try{render(JSON.parse(e.data))}catch(error){$('feedback').textContent='状态数据暂不可用'}};
+ events.onerror=()=>{render({connected:false,cameras:[]});$('connection').textContent='连接中断，等待重连…'};
+}
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){events?.close();events=null}else{connect()}
+});
+window.addEventListener('pagehide',()=>{events?.close();events=null});
+window.addEventListener('pageshow',connect);
+renderOperations();
+connect();
+</script></body></html>

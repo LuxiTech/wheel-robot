@@ -1,0 +1,70 @@
+{
+  "name": "Floor to workbench / 3 boxes",
+  "initial_pose": [
+    3.4,
+    -0.35,
+    -1.5707963267948966
+  ],
+  "floor_positions": [
+    [
+      3.4,
+      -1.25
+    ],
+    [
+      4.35,
+      -1.25
+    ],
+    [
+      5.3,
+      -1.25
+    ]
+  ],
+  "slot_offsets": [
+    -0.55,
+    0,
+    0.55
+  ],
+  "navigation": {
+    "speed": 0.65,
+    "carry_speed": 0.35
+  },
+  "render_every": 12,
+  "solver_iterations": {"position": 32, "velocity": 8},
+  "docking_speed": 0.14,
+  "navigation_settle": 0.25,
+  "grasp_forward": 0.42,
+  "observe_forward": 0.72,
+  "grasp_height": 0.14,
+  "lift_travel": 0.4,
+  "carry_center": [
+    0.42,
+    0.0,
+    1.0
+  ],
+  "squeeze_depth": 0.03,
+  "finger_angle": 0.25,
+  "timeout": 480.0,
+  "ground_seed": {
+    "left": [
+      -0.6056803842655483,
+      -0.7064131015639654,
+      0.23827283001314867,
+      1.3147884679153534,
+      -0.7413217049998048,
+      -0.25784661219673655,
+      -1.5636174363395274
+    ],
+    "right": [
+      0.5951425522948489,
+      0.7072232310495782,
+      -0.22363617224725837,
+      1.321972037975795,
+      0.7367867137489283,
+      0.26216064464378364,
+      1.5648157510702978
+    ]
+  },
+  "place_dock_distance": 0.32,
+  "place_forward": 0.52,
+  "slot_width": 0.5
+}

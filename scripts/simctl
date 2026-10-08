@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+stop_simulations() {
+  docker compose stop isaac-sim
+  local -a active_simulation_ids
+  mapfile -t active_simulation_ids < <(docker ps -q \
+    --filter label=com.docker.compose.project=wheel-robot \
+    --filter label=com.docker.compose.service=isaac-sim)
+  if (( ${#active_simulation_ids[@]} )); then
+    docker stop "${active_simulation_ids[@]}"
+  fi
+}
+case "${1:-help}" in
+  init)
+    mkdir -p assets/generated assets/robots outputs .cache/downloads .runtime/isaac/{cache,compute,logs,config,data,pkg,kit-cache,kit-data,kit-config,user-config,omniverse,ov}
+    if [[ ! -f .env ]]; then
+      cp .env.example .env
+      sed -i "s/^LOCAL_UID=.*/LOCAL_UID=$(id -u)/; s/^LOCAL_GID=.*/LOCAL_GID=$(id -g)/" .env
+    fi
+    archive=.cache/downloads/blender-4.5.3-linux-x64.tar.xz
+    if [[ ! -f "$archive" ]]; then
+      curl -fL --retry 3 -o "$archive.part" https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz
+      mv "$archive.part" "$archive"
+    fi
+    echo "975c58fcb244273838534bba771e64ad87739216b0f9b39a888531a49a72d845  $archive" | sha256sum -c -
+    docker compose build scene-builder
+    ;;
+  doctor)
+    docker compose config --quiet
+    docker version --format '{{.Server.Version}}'
+    docker compose version
+    nvidia-smi --query-gpu=index,name,driver_version,memory.free --format=csv
+    df -h .
+    docker compose run --rm --entrypoint nvidia-smi isaac-sim -L
+    ;;
+  build-scene)
+    docker compose run --rm scene-builder --python /workspace/scripts/build_scene.py
+    docker compose run --rm assemble
+    test -s assets/generated/main.usda
+    ;;
+  build-robot)
+    shift
+    mkdir -p assets/robots/generated
+    docker compose run --rm robot-builder /workspace/scripts/import_robot.py "$@"
+    test -s assets/robots/generated/robot.usdc
+    ;;
+  build-relay)
+    python3 scripts/prepare_relay_robot.py
+    docker compose run --rm scene-builder --python /workspace/scripts/build_relay_scene.py
+    docker compose run --rm robot-builder /workspace/scripts/import_relay_robot.py
+    docker compose run --rm assemble /workspace/scripts/assemble_relay_scene.py
+    test -s assets/generated/relay/main.usda
+    ;;
+  relay-test)
+    docker compose run --rm isaac-sim /workspace/scripts/run_relay_scene.py --test --capture
+    ;;
+  camera-console|relay-split)
+    shift
+    stop_simulations
+    exec python3 scripts/start_relay_decoupled.py "$@"
+    ;;
+  relay-viewer)
+    shift
+    exec python3 scripts/start_relay_decoupled.py --viewer-only "$@"
+    ;;
+  relay-cameras)
+    shift
+    exec python3 scripts/start_relay_decoupled.py --camera-only "$@"
+    ;;
+  camera-console-legacy)
+    shift
+    stop_simulations
+    python3 scripts/robot_camera_server.py &
+    camera_console_pid=$!
+    trap 'kill "$camera_console_pid" 2>/dev/null || true' EXIT
+    sleep .3
+    kill -0 "$camera_console_pid"
+    "$0" relay --gui --camera-console "$@"
+    ;;
+  relay-demo)
+    shift
+    exec "$0" relay --auto "$@"
+    ;;
+  navigation-console)
+    shift
+    stop_simulations
+    python3 scripts/navigation_console_server.py &
+    console_pid=$!
+    trap 'kill "$console_pid" 2>/dev/null || true' EXIT
+    sleep .3
+    kill -0 "$console_pid"
+    "$0" navigation --gui --web-console "$@"
+    ;;
+  navigation)
+    shift
+    stop_simulations
+    exec "$0" relay --navigation-demo "$@"
+    ;;
+  navigation-livo)
+    shift
+    stop_simulations
+    export LIVO_SESSION_AFTER="$(date +%s)"
+    docker compose -f compose.livo.yaml up -d --force-recreate fast-livo
+    livo_container_id=$(docker compose -f compose.livo.yaml ps -q fast-livo)
+    trap 'docker stop "$livo_container_id" >/dev/null 2>&1 || true' EXIT
+    "$0" relay --navigation-demo --localization fast_livo2 "$@"
+    ;;
+  relay)
+    shift
+    if [[ " ${*} " == *" --gui "* ]]; then
+      python3 scripts/prepare_display.py
+      docker compose -f compose.yaml -f compose.gui.yaml run --rm isaac-sim /workspace/scripts/run_relay_scene.py "$@"
+    else
+      docker compose run --rm isaac-sim /workspace/scripts/run_relay_scene.py "$@"
+    fi
+    ;;
+  robot-test)
+    docker compose run --rm isaac-sim /workspace/scripts/test_robot_sim.py
+    ;;
+  console)
+    shift
+    exec "$0" transport --demo --gui "$@"
+    ;;
+  demo)
+    shift
+    exec "$0" transport --demo "$@"
+    ;;
+  transport)
+    shift
+    stop_simulations
+    if [[ " ${*} " == *" --gui "* ]]; then
+      python3 scripts/prepare_display.py
+      docker compose -f compose.yaml -f compose.gui.yaml run --rm isaac-sim /workspace/scripts/run_transport.py "$@"
+    else
+      docker compose run --rm isaac-sim /workspace/scripts/run_transport.py "$@"
+    fi
+    ;;
+  preview)
+    docker compose run --rm scene-builder --python /workspace/scripts/build_scene.py -- --render-preview
+    ;;
+  test)
+    docker compose run --rm --entrypoint /isaac-sim/python.sh isaac-sim -B -m unittest discover -s /workspace/tests -v
+    ;;
+  smoke)
+    rm -f outputs/simulation_report.json
+    docker compose run --rm isaac-sim /workspace/scripts/run_sim.py --smoke-test --capture
+    python3 -c 'import json; r=json.load(open("outputs/simulation_report.json")); assert r["passed"], r; print("Physics checks passed")'
+    ;;
+  run)
+    shift
+    docker compose run --rm isaac-sim /workspace/scripts/run_sim.py "$@"
+    ;;
+  gui)
+    python3 scripts/prepare_display.py
+    docker compose -f compose.yaml -f compose.gui.yaml up -d isaac-sim
+    echo 'GUI launched on the current desktop. Logs: ./scripts/simctl logs'
+    ;;
+  up) docker compose up -d isaac-sim ;;
+  stop) stop_simulations ;;
+  logs) docker compose logs -f isaac-sim ;;
+  *) echo 'Usage: scripts/simctl {camera-console|relay-split|relay-viewer|relay-cameras|camera-console-legacy|navigation-console|navigation [--gui --navigation-goal ID]|navigation-livo [--gui --navigation-goal ID]|init|doctor|build-robot [--reuse-import]|robot-test|build-relay|relay [--gui|--steps N --capture]|relay-demo [--gui --boxes N --perception ground_truth|depth --skill-test grasp|direct|handoff --capture]|relay-test|console|demo [--gui]|transport [--gui|--manipulation-test|--navigation-test]|build-scene|preview|test|smoke|run [--steps N --capture]|gui|up|stop|logs}' ;;
+esac

@@ -1,0 +1,3 @@
+[lint]
+# Isaac extension imports must follow SimulationApp initialization.
+ignore = ["E402"]

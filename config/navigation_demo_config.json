@@ -1,0 +1,68 @@
+{
+  "resolution": 0.05,
+  "bounds": [
+    -4.9,
+    -4.4,
+    4.9,
+    3.94
+  ],
+  "robot_radius": 0.43,
+  "goal_tolerance": 0.025,
+  "speed": 0.3,
+  "points": [
+    {
+      "id": "source_front_left",
+      "label": "\u53d6\u7269\u70b9 1\uff1a\u6e90\u579b\u5de6\u524d",
+      "pose": [
+        -2.75,
+        -0.45,
+        1.5707963267948966
+      ]
+    },
+    {
+      "id": "source_front_right",
+      "label": "\u53d6\u7269\u70b9 2\uff1a\u6e90\u579b\u53f3\u524d",
+      "pose": [
+        -2.45,
+        -0.45,
+        1.5707963267948966
+      ]
+    },
+    {
+      "id": "source_rear_right",
+      "label": "\u53d6\u7269\u70b9 3\uff1a\u6e90\u579b\u53f3\u540e",
+      "pose": [
+        -2.45,
+        2.05,
+        -1.5707963267948966
+      ]
+    },
+    {
+      "id": "source_rear_left",
+      "label": "\u53d6\u7269\u70b9 4\uff1a\u6e90\u579b\u5de6\u540e",
+      "pose": [
+        -2.75,
+        2.05,
+        -1.5707963267948966
+      ]
+    },
+    {
+      "id": "handoff_approach",
+      "label": "\u53d6\u7269\u70b9 5\uff1a\u4ea4\u63a5\u684c\u524d",
+      "pose": [
+        -0.3,
+        -0.25,
+        1.57079632679
+      ]
+    },
+    {
+      "id": "home",
+      "label": "\u8fd4\u56de\u5f85\u547d\u70b9",
+      "pose": [
+        -1.1,
+        -0.65,
+        1.57079632679
+      ]
+    }
+  ]
+}
