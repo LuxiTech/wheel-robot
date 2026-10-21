@@ -2,7 +2,9 @@
 
 LuxiTech 轮式双臂机器人的仿真与任务控制代码，基于 Isaac Sim 和 Blender，面向 R680 全向底盘、升降机构和 OpenArm 双臂，包含搬箱、双机接力码垛、固定工位导航及网页控制台。
 
-本仓库只管理业务代码和配套配置、测试、文档。机器人模型和生成资产需单独准备；仅克隆仓库不能直接启动完整仿真。当前未接入真机驱动。
+本仓库只管理业务代码和配套配置、测试、文档。机器人模型和生成资产需单独准备；仅克隆仓库不能直接启动完整仿真。当前默认运行纯仿真；真机 SDK 已固定为子模块，尚未接入真机自主运动执行。
+
+本文对应 **`dev-real` 分支**（复现说明更新于 2026-10-21）。首次部署按“环境准备 → 外部资源准备 → RGB-D 模型环境（按需）→ 测试与运行”的顺序执行；所有命令均在仓库根目录运行。
 
 ## 入库范围
 
@@ -16,7 +18,9 @@ LuxiTech 轮式双臂机器人的仿真与任务控制代码，基于 Isaac Sim 
 | `.env.example`、`.gitignore`、`.dockerignore`、`ruff.toml` | 是 | 环境模板与开发配置 |
 | `assets/` | 否 | 外部 URDF、网格、模型压缩包、生成的 USD/Blender 文件 |
 | `video/`、`outputs/` | 否 | 录屏、截图、日志及运行报告 |
-| `third_party/` | 否 | 外部源码；需要时按脚本指定版本获取 |
+| `ros2_ws/src/`、`tools/grasp/` | 是 | 抓箱核心、ROS 接口、环境与模型工具 |
+| `third_party/lift_robot_ros2` | 子模块引用 | Git 固定 SDK 提交，克隆时需初始化子模块 |
+| `third_party/` 中其他源码 | 否 | 按依赖锁文件下载，不随主仓库上传 |
 | `.env`、`.cache/`、`.runtime/`、Python 缓存和虚拟环境 | 否 | 本机环境、下载缓存和运行数据 |
 
 排除项由 `.gitignore` 管理，保留在本机，不随代码推送。文档中提到的资产和 `outputs/` 报告也是本地文件，不是仓库内附件。
@@ -37,25 +41,39 @@ LuxiTech 轮式双臂机器人的仿真与任务控制代码，基于 Isaac Sim 
 
 ## 环境准备
 
-需要 Linux、NVIDIA GPU 及驱动、NVIDIA Container Toolkit、Docker Engine、Docker Compose v2，以及宿主机 Python 3、Git、curl。GUI 模式还需要本机 X11/Xwayland 桌面会话。
+需要 Linux、NVIDIA GPU 及驱动、NVIDIA Container Toolkit、Docker Engine、Docker Compose v2，以及宿主机 Python 3.10 或更新版本、Git、curl。GUI 模式还需要本机 X11/Xwayland 桌面会话。
 
 项目配置使用 Isaac Sim **6.0.1**（`.env.example` 固定镜像摘要）和 Blender **4.5.3**。Isaac/Blender 运行在容器中；首次初始化需要联网下载 Blender、构建镜像，并在运行前获取 Isaac 镜像。
 
 ```bash
-git clone https://github.com/LuxiTech/wheel-robot.git
+git clone --branch dev-real --single-branch --recurse-submodules https://github.com/LuxiTech/wheel-robot.git
 cd wheel-robot
+git submodule status
 ./scripts/simctl init
 ```
 
+已克隆该分支但未下载子模块时，执行 `git submodule update --init --recursive`。SDK 固定提交为 `ba0c7320cd1499995cfc614e83c0c3963343e15a`；不要用 `git submodule update --remote` 替换锁定版本。GitHub 仓库公开不代表外部 SDK、镜像与模型下载源一定可访问，首次部署需要分别连通这些来源。
+
 `init` 会创建本地目录，从 `.env.example` 生成 `.env` 并填写当前用户 UID/GID。随后编辑 `.env`：
 
-- `GPU_ID` 默认是 `1`，单显卡机器通常改为 `0`。
+- `GPU_ID`（仿真）默认是 `1`，`PERCEPTION_GPU_ID`（模型推理）默认是 `0`。单显卡机器将两者都改为 `0`。
 - 核对 `LOCAL_UID`、`LOCAL_GID` 与当前用户一致。
 - 使用 NVIDIA 镜像前确认接受其许可条款；模板中的 `ACCEPT_EULA=Y` 会传入容器。
 
+单显卡 `.env` 的关键项如下，UID/GID 保留 `init` 自动填入的值：
+
+```dotenv
+GPU_ID=0
+PERCEPTION_GPU_ID=0
+```
+
 ```bash
+# 显式准备固定版本的 Isaac 镜像，再检查 Docker、GPU 和磁盘
+docker compose pull isaac-sim
 ./scripts/simctl doctor
 ```
+
+`doctor` 应能在容器中列出所选 GPU；它不校验机器人资产或模型权重。`init` 会下载 Blender 并构建场景工具镜像，不能只复制 `.env` 就跳过初始化。
 
 默认仿真容器不联网，缓存保存在项目 `.runtime/`，不会随代码提交。GUI 会额外挂载当前桌面的显示认证信息。网页服务仅监听本机。
 
@@ -69,7 +87,7 @@ assets/robots/
 │   ├── r680_lift_openarm_sim.urdf
 │   └── resources/                 # URDF 引用的完整网格目录
 ├── r680_lift_openarm_20261019/     # 当前拆码垛模型：r680_lift_openarm(1).rar（完整解压）
-│   └── r680_lift_openarm_robot_viewer/
+│   └── r680_lift_openarm/
 │       ├── r680_lift_openarm_robot_viewer.urdf
 │       └── resources/
 └── r680_openarm/                  # 使用固定立柱配置时需要
@@ -93,6 +111,71 @@ assets/robots/
 ```
 
 生成结果写入 `assets/generated/` 和 `assets/robots/generated/`。`build-relay` 使用独立的 `config/profiles/robot_relay.json`，基于 2026-10-19 提供的 `r680_lift_openarm(1).rar` 原始 URDF，保留固定于 `base_link` 的 D455 相机及其安装标定，相机不随升降移动，并使用 URDF 原装 OpenArm 夹爪；也会更新 `config/relay_robot_config.json`，提交前检查其差异。修改模型或场景配置后应重新构建；不要在仿真运行期间同时执行装配。旧模型的抓取验证记录仅适用于当时的模型，新的视觉及完整拆码垛任务需要重新验收。
+
+## RGB-D 模型环境与首次运行
+
+仅运行基础仿真可跳过本节；`tools/grasp/environment run` 和 `relay` 都需要本节的模型环境。基础仿真与感知使用独立容器，宿主机无需安装 ROS、PyTorch 或 CUDA Toolkit。
+
+版本依据为 [环境锁](config/grasp/environment.lock.json)、[源码锁](config/grasp/dependencies.lock.json)、[模型锁](config/grasp/models.lock.json)。[历史验证环境](config/grasp/validated-environment.json)记录的是 RTX 3090、推理 Python 3.8.18、PyTorch 2.0.0+cu118、TensorRT 8.6.1；这是已有验证基线，不是最低配置或任意 GPU 的兼容保证。Isaac 使用独立镜像中的 Python。宿主驱动需同时支持两套镜像；先通过 `doctor` 和下方 `check` 验证。
+
+完成上文初始化及资产生成后，依次执行；每一步成功后再继续：
+
+```bash
+tools/grasp/environment sources           # 恢复固定提交的 SDK 与模型源码
+tools/grasp/environment build-sdk         # 同时提供模型下载工具所用镜像
+tools/grasp/environment download          # 权重和离线 Hugging Face 缓存
+tools/grasp/environment verify-models     # 核对锁文件 SHA-256
+tools/grasp/environment build-perception
+tools/grasp/environment check             # 模块导入、CUDA 和 GPU 隔离
+tools/grasp/environment engines           # 在目标 GPU 构建 TensorRT 引擎
+tools/grasp/environment smoke             # 实际模型推理冒烟检查
+```
+
+模型保存在 `assets/models/`，引擎在 `assets/models/engines/`，都不在 Git 中。更换 GPU、TensorRT 或构建参数后，应先归档旧引擎和配套 JSON 元数据，再重新生成；工具会拒绝覆盖不匹配的已有引擎。首次下载和构建需要较多磁盘空间，FoundationPose 基础镜像仅压缩层就约 11 GB，还需容纳解压镜像、构建缓存、Isaac、权重及日志。
+
+感知还需要箱体网格。`build-relay` 生成 `crate_colliders.json` 后，在独立虚拟环境中生成它，并准备轻量测试依赖：
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r tools/grasp/requirements.txt
+.venv/bin/python tools/grasp/build_crate_mesh.py
+```
+
+输出为 `assets/generated/grasp/crate.obj`。脚本拒绝覆盖已有文件；首次复现执行一次即可。箱体碰撞几何更改后，应归档旧网格并重新生成。若系统缺少 `venv`，先安装系统对应 Python 版本的 venv 包。
+
+选择与资产相匹配的入口：
+
+| 入口 | 必需资产 / 配置 | 当前验证范围 |
+|---|---|---|
+| `environment run` | 基础 URDF、`build-robot` 生成的机器人、`build-relay` 生成的箱体、`runtime.sim.json` | 单箱 RGB-D、模型感知、IK、预抓取/抓取位姿接近；不含夹紧提箱 |
+| `environment relay` | 2026-10-19 原装夹爪 URDF、`build-relay` 生成的双机场景、`robot_relay.json` | 原接力状态机接入模型感知；完整 18 箱仍未验收 |
+
+```bash
+# 无需 GUI：先确认相机采集和感知链路
+tools/grasp/environment run --perception-only
+# 单箱接近动作验证（使用基础机器人模型）
+tools/grasp/environment run
+# 双机模型感知模式：先检查单箱抓取，桌面环境可增加 --gui
+tools/grasp/environment relay --boxes 1 --skill-test grasp
+```
+
+单显卡可将两个 GPU ID 设为 0，但 `relay` 的感知进程与仿真会同时驻留，需实际确认显存足够；单箱 `run` 按阶段串行运行。不要用较旧的单箱模型替代接力模型，也不要把单箱接近完成当作接力搬运完成。
+
+单箱日志在 `outputs/grasp/runs/<ID>/`，接力日志在 `outputs/grasp/relay_runs/<ID>/`。先看 `manifest.json` 的状态及错误，再查看对应阶段日志；接力还要检查 `relay_report.json` 中的 `passed` / `skill_passed`。`outputs/` 的历史报告不随仓库提供，需要自行运行生成。
+
+## 常见复现问题
+
+| 现象 | 检查与处理 |
+|---|---|
+| 无效 GPU 编号、容器看不到 GPU | 核对 `.env` 两个 GPU ID、宿主 `nvidia-smi`、NVIDIA Container Toolkit；重新运行 `doctor` |
+| URDF、网格或 USD 不存在 | 获取外部机器人资源，按配置的相对路径解压；执行对应 `build-robot` / `build-relay`；模型感知另外需要 `crate.obj` |
+| SDK 子模块为空或构建找不到源码 | 执行 `git submodule update --init --recursive` 和 `environment sources`，检查 Gitee/GitHub 下载访问 |
+| 权重缺失、校验失败或离线缓存不完整 | 重新检查 `download` / `verify-models` 输出，保留错误文件用于排查；不要跳过校验 |
+| 引擎不兼容或显存不足 | 归档旧引擎后在目标 GPU 重建；检查其他占用 GPU 的进程，确认双机模式同时驻留的显存需求 |
+| SSH 中 GUI 启动失败 | 先使用不带 `--gui` 的入口；GUI 需要可用的 X11/Xwayland 会话和显示认证 |
+| 挂载目录无写权限 | 核对 `.env` 的 UID/GID 与 `id -u` / `id -g`，以及 `assets/`、`outputs/`、`.runtime/` 的属主 |
+
+迁移时除了源码与子模块，还需保存机器人资产、模型权重/缓存、构建镜像及校验值。在线重建的间接 apt/pip 依赖可能变化；精确复现历史环境应使用归档镜像。归档/加载命令见[迁移与离线复现](tools/grasp/README.md#7-迁移与离线复现)。公开源码本身不足以完整复现未发布的机器人资源。
 
 ## 常用运行命令
 
@@ -153,6 +236,14 @@ FAST-LIVO2 是可选的调试定位链路，首次使用先构建镜像：
 ```bash
 python3 -B -m unittest discover -s tests -p 'test_task.py' -v
 ```
+
+已按上文建立 `.venv` 后，可运行抓箱核心测试：
+
+```bash
+.venv/bin/python -m pytest tests/grasp -q
+```
+
+缺少外部 URDF 或回放数据时，部分用例会跳过；检查测试输出中的 skipped，不能据此认定资产或真实模型推理已通过。
 
 准备好模型、生成资产和容器环境后再执行完整测试及物理验证：
 
