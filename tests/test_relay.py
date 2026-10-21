@@ -466,12 +466,12 @@ class RuntimeGuardTests(unittest.TestCase):
         from relay_runtime import RelayRuntime
         rt=RelayRuntime.__new__(RelayRuntime)
         rt.initial=[{'path':'crate'}]
-        prefix='/World/Robots/Robot_A/Geometry/openarm_left_gripper_'
-        rt.contacts={'crate':{prefix+'left_inner_knuckle'}}
+        prefix='/World/Robots/Robot_A/Geometry/openarm_left_'
+        rt.contacts={'crate':{prefix+'ee_base_link'}}
         self.assertFalse(rt.gripping('A',0,'left'))
-        rt.contacts['crate']={prefix+'left_outer_knuckle/openarm_left_gripper_left_finger'}
+        rt.contacts['crate']={prefix+'ee_link1'}
         self.assertFalse(rt.gripping('A',0,'left'))
-        rt.contacts['crate'].add(prefix+'right_outer_knuckle/openarm_left_gripper_right_finger')
+        rt.contacts['crate'].add(prefix+'ee_link2')
         self.assertTrue(rt.gripping('A',0,'left'))
         self.assertFalse(rt.gripping('A',0,'right'))
 

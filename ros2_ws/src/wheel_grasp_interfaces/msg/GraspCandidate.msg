@@ -1,0 +1,14 @@
+std_msgs/Header header
+string target_id
+string pair_id
+string candidate_id
+string rule_version
+string tcp_version
+geometry_msgs/Pose left
+geometry_msgs/Pose right
+geometry_msgs/Pose left_pregrasp
+geometry_msgs/Pose right_pregrasp
+bool ik_feasible
+bool collision_checked
+bool executable
+string reject_reason

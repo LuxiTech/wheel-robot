@@ -1,0 +1,27 @@
+sdk_commit: ba0c7320cd1499995cfc614e83c0c3963343e15a
+base_url: http://192.168.0.245:18030
+camera: head_rgb
+urdf: assets/robots/r680_lift_openarm/r680_lift_openarm_sim.urdf
+base_frame: base_footprint
+# Simulation commissioning TCP only; hardware must supply its verified TCP.
+tcp:
+  left: [0.0, 0.0, -0.202]
+  right: [0.0, 0.0, -0.202]
+tcp_hardware_validated: false
+lift_mapping: null
+rules:
+  width: 0.4
+  height: 0.22
+  inset: 0.007
+  below_top: 0.006
+  pitch_degrees: 50.0
+  heading: 1.5707963267948966
+  clearance: 0.06
+model:
+  mesh: assets/generated/grasp/crate.obj
+  colliders: assets/generated/relay/crate_colliders.json
+  foundationpose_repository: third_party/FoundationPose
+  owl_engine: null
+  sam_encoder: null
+  sam_decoder: null
+  prompt: a plastic crate

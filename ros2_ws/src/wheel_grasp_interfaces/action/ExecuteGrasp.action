@@ -1,0 +1,12 @@
+# Contract only: hardware action server is not enabled by this package.
+string target_id
+string candidate_id
+string pair_id
+string session_id
+---
+bool success
+string reason
+---
+string phase
+bool holding
+string reason

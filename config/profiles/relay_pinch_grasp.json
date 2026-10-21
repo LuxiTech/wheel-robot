@@ -1,0 +1,25 @@
+{
+  "gripper_open": 0.25,
+  "gripper_frame_yaw_degrees": {
+    "left": 90,
+    "right": -90
+  },
+  "tcp": [
+    -0.04,
+    0,
+    -0.16
+  ],
+  "source_vertical_approach": 0.04,
+  "dock_distance": 0.68,
+  "path_ik_attempts": 4,
+  "gripper_pitch_degrees": 70,
+  "source_unfold_retract": 0.025,
+  "second_hand_joint_approach": true,
+  "grasp_below_top": 0.002,
+  "pinch_collision_approximation": "convexDecomposition",
+  "hold_gripper_stiffness": 250,
+  "hold_gripper_torque_limit": 7,
+  "freeze_contact_during_closure": true,
+  "grasp_hold_seconds": 10,
+  "source_lift_retreat": 0.03
+}

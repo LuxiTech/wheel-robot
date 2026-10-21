@@ -8,7 +8,7 @@ import uuid
 import numpy as np
 from PIL import Image
 
-from common import OUTPUTS
+from common import OUTPUTS, ROOT
 from navigation_console_ipc import atomic_json
 
 
@@ -34,19 +34,19 @@ class RobotCameraStreams:
         self.last_heartbeat = 0.
         self.status = None
         self.streams = []
+        calibration = json.loads((ROOT/'config/grasp/runtime.sim.json').read_text())['simulation']['camera']
+        width, height = calibration['width'], calibration['height']
+        self.image_shape = (height, width)
         for name in robots:
-            root = '/World/Robots/' + name + metadata['root_path']
+            root = '/World/Robots/' + name + metadata['frames']['head_d455_color_optical_frame']
             camera = UsdGeom.Camera.Define(stage, root + '/ConsoleCamera')
-            # Local robot frame is X forward / Z up. This virtual observation
-            # camera is fixed to the chassis, not a calibrated physical D455.
-            camera.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(
-                Gf.Vec3d(.22, 0, 1.25), Gf.Vec3d(2.22, 0, .65),
-                Gf.Vec3d(0, 0, 1)).GetInverse())
-            camera.CreateFocalLengthAttr(18.)
-            camera.CreateHorizontalApertureAttr(36.)
-            camera.CreateVerticalApertureAttr(20.25)
+            # Match the URDF RGB-D perception camera, including its field of view.
+            camera.AddRotateXOp().Set(180.)
+            camera.CreateFocalLengthAttr(24.)
+            camera.CreateHorizontalApertureAttr(24*width/calibration['fx'])
+            camera.CreateVerticalApertureAttr(24*height/calibration['fy'])
             camera.CreateClippingRangeAttr(Gf.Vec2f(.03, 30.))
-            product = rep.create.render_product(str(camera.GetPath()), (640, 360))
+            product = rep.create.render_product(str(camera.GetPath()), (width, height))
             annotator = rep.AnnotatorRegistry.get_annotator('rgb')
             annotator.attach([product])
             self.streams.append(dict(id=name, product=product, annotator=annotator,
@@ -118,7 +118,7 @@ class RobotCameraStreams:
                 if hasattr(self,'performance'):
                     self.performance['readback_seconds']+=time.perf_counter()-started
                 started=time.perf_counter()
-                if pixels.ndim != 3 or pixels.shape[:2] != (360, 640):
+                if pixels.ndim != 3 or pixels.shape[:2] != self.image_shape:
                     raise ValueError('等待相机首帧')
                 pixels = pixels[:, :, :3].astype(np.uint8)
                 if stream['pixels'] is None or not np.array_equal(pixels, stream['pixels']):

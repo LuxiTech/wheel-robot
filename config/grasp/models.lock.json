@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "owlvit": {
+    "repository": "google/owlvit-base-patch32",
+    "revision": "cbc355fb364588351c5d51c7f74465e8e7ec6f72"
+  },
+  "provenance": {
+    "nanosam_encoder": "Community mirror pinned by commit, referenced by dusty-nv/jetson-containers packages/vit/nanosam/Dockerfile; original Google Drive inaccessible on 2026-10-16",
+    "nanosam_decoder": "NVIDIA Box URL referenced by the same upstream container recipe",
+    "foundationpose": "Original Google Drive linked by NVlabs/FoundationPose readme, model-based refiner and scorer",
+    "owlvit": "Google Hugging Face repository, fixed revision"
+  },
+  "files": [
+    {
+      "path": "assets/models/nanosam/resnet18_image_encoder.onnx",
+      "url": "https://raw.githubusercontent.com/johnnynunez/nanosam/74ac323f528f27e8f9ae8780578b0204e1a33e7b/data/resnet18_image_encoder.onnx",
+      "sha256": "d266fcdc9e4f0182b59946cd3cf1be331641f1d0d1de2415c4fd94e7a1c9cf0a"
+    },
+    {
+      "path": "assets/models/nanosam/mobile_sam_mask_decoder.onnx",
+      "url": "https://nvidia.box.com/shared/static/ho09o7ohgp7lsqe0tcxqu5gs2ddojbis.onnx",
+      "sha256": "41e49a298099048186ce109a4518286b8972959898a02577414405efa5c3b247"
+    },
+    {
+      "path": "assets/models/FoundationPose/2023-10-28-18-33-37/config.yml",
+      "url": "gdrive:1477-st1s1TxXN6oqfM5ZnsQwd8BCzVg1",
+      "sha256": "28a6ba94a33230ee5fc3c51939486281578b0972542bd9e38ca6123e75605686"
+    },
+    {
+      "path": "assets/models/FoundationPose/2023-10-28-18-33-37/model_best.pth",
+      "url": "gdrive:1E9FPB5WFIBMLrOJqZLpoVOK4Mjzrrxhv",
+      "sha256": "774700586ddc435d408fc01c9809c43e151232936369dfbea0f0f964ba471d60"
+    },
+    {
+      "path": "assets/models/FoundationPose/2024-01-11-20-02-45/config.yml",
+      "url": "gdrive:1kQkQG-q_VvLRozv30hyeLB7P_jiEEqiE",
+      "sha256": "a79db4de3b95885dd5ae86833b37b8698a75dad81e87d1086cd50b2fcd8dda3f"
+    },
+    {
+      "path": "assets/models/FoundationPose/2024-01-11-20-02-45/model_best.pth",
+      "url": "gdrive:1Zdjnkn4EHOI5_k08apofwRgTjWpai4E4",
+      "sha256": "81924d384bf5c26c646ee4783104982ae3d1e049c181c36641b6a7aeae494c26"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/README.md",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/README.md",
+      "sha256": "a16c707494da894773e85c1be976ae605a7b3a3ce92cf9ed277623dd25f236bf"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/config.json",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/config.json",
+      "sha256": "b5934e0d2933194b8a85f93674e577feaa1a1ba2dc1d143b2d5e5305ff7a9d7c"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/merges.txt",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/merges.txt",
+      "sha256": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/preprocessor_config.json",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/preprocessor_config.json",
+      "sha256": "2010d320cd2c68a8bb1de69aaa8f89daf173ef17cc22a30e4baf44b2f0e9bb6e"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/special_tokens_map.json",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/special_tokens_map.json",
+      "sha256": "f118ab3a983206e4f32583448de6bd6aae4ee21869135cef1f5848a753cdaab6"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/tokenizer_config.json",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/tokenizer_config.json",
+      "sha256": "da35aceebeda2adf44094a5867940b09379323b9390fa9197b57044e106bfb6e"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/vocab.json",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/vocab.json",
+      "sha256": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349"
+    },
+    {
+      "path": "assets/models/owlvit-base-patch32/model.safetensors",
+      "url": "https://huggingface.co/google/owlvit-base-patch32/resolve/cbc355fb364588351c5d51c7f74465e8e7ec6f72/model.safetensors",
+      "sha256": "4dbe0399f0b7d7c8dddf1535a98769cc30743bebc877aea681998c8d984ce52b"
+    }
+  ]
+}

@@ -25,8 +25,8 @@ def source_handoff_slot(scene, spec):
 
 
 def source_handoff_far(scene, spec):
-    """Choose the rear/front approach from source world Y, not deposit slot."""
-    return spec['position'][1] > sum(slot[1] for slot in scene['handoff']['slots']) / len(scene['handoff']['slots'])
+    """A deposits from the rear long edge; B owns the front long edge."""
+    return True
 
 
 def target_order(scene):

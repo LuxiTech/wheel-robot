@@ -23,3 +23,9 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# ROS 2 generated workspaces and editable package metadata
+/ros2_ws/build/
+/ros2_ws/install/
+/ros2_ws/log/
+*.egg-info/

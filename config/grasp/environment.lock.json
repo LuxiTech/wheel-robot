@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "sdk_commit": "ba0c7320cd1499995cfc614e83c0c3963343e15a",
+  "base_images": {
+    "sdk_bridge": "ros:humble-ros-base-jammy@sha256:afb40d6be65331c20a114d4e229a7ef099fed1b17bf6370daee193514b32aa16",
+    "perception": "wenbowen123/foundationpose@sha256:22837f81c0cfc1906b96daa344f8e80919c7619b816fcab487a024f1f566c215",
+    "sim": "nvcr.io/nvidia/isaac-sim:6.0.1@sha256:783444c706538aa76cf5126e911ddc5e618779e6105305ad4af4260362a30aa9"
+  },
+  "reproducibility": "Base images and direct dependencies pinned; save built image archives for exact replay of transitive apt/pip dependencies."
+}

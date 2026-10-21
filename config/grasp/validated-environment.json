@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-16",
+  "sdk_commit": "ba0c7320cd1499995cfc614e83c0c3963343e15a",
+  "images": {
+    "sdk_bridge": "sha256:37a5fe4739c8fdf87763e6b4db985cb2e2abda24c38cb5293fb4ea7ecaa97a67",
+    "perception": "sha256:f4d37d8262a2a87b429b327b3880d7e5084673acda5e27a11d7b32725aee590b"
+  },
+  "model_file_count": 14,
+  "tensorrt_engines": 3,
+  "core_tests_host": 31,
+  "core_tests_sdk_container": 21,
+  "core_tests_perception_container": 21,
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "visible_gpu_count": 1,
+  "python_perception": "3.8.18 (default, Sep 11 2023, 13:40:15) \n[GCC 11.2.0]",
+  "torch": "2.0.0+cu118",
+  "tensorrt": "8.6.1",
+  "model_smoke_passed": true,
+  "smoke_kind": "real_model_inference_on_upstream_image_and_synthetic_rgbd",
+  "real_box_accuracy_validated": false,
+  "autonomous_grasp_loop_validated": false
+}

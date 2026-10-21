@@ -21,9 +21,11 @@ def wrap(angle):
 
 class RelayRuntime:
     def __init__(self, scene, initial, robots, controls, crates, pusher, contacts,
-                 *, count=18, perception='ground_truth', skill_test=None, handoff_target=0, source_box=None):
+                 *, count=18, perception='ground_truth', skill_test=None, handoff_target=0, source_box=None,
+                 settings_overrides=None):
         self.c, self.initial = scene, initial['crates']
         self.settings = json.loads((ROOT/'config/relay_demo_config.json').read_text())
+        self.settings.update(settings_overrides or {})
         self.robots, self.controls, self.crates = robots, controls, crates
         self.pusher, self.contacts = pusher, contacts
         self.count, self.perception, self.skill_test = count, perception, skill_test
@@ -43,20 +45,48 @@ class RelayRuntime:
                         ctl.drives[name].GetMaxForceAttr().Set(min(spec['effort'],self.settings['gripper_torque_limit']))
         from pxr import UsdShade,UsdPhysics,PhysxSchema
         stage=next(iter(controls.values())).drives['lift_joint'].GetPrim().GetStage()
+        # The importer instances collision meshes. Ordinary Traverse skips
+        # their mesh proxies, so per-finger friction/shape edits otherwise
+        # silently miss every finger collider.
+        for prim in list(stage.Traverse()):
+            if (prim.IsInstance() and 'collision' in prim.GetName() and
+                    any(part.endswith(('_ee_link1','_ee_link2')) for part in str(prim.GetPath()).split('/'))):
+                prim.SetInstanceable(False)
         material=UsdShade.Material.Define(stage,'/World/Materials/RelayFingerRubber')
         physics_material=UsdPhysics.MaterialAPI.Apply(material.GetPrim())
         physics_material.CreateStaticFrictionAttr(self.settings['finger_static_friction'])
         physics_material.CreateDynamicFrictionAttr(self.settings['finger_dynamic_friction'])
         physics_material.CreateRestitutionAttr(0.)
+        self.finger_collision_overrides=[]
         for prim in stage.Traverse():
             path=str(prim.GetPath())
             if '/Robots/' in path and prim.HasAPI(UsdPhysics.RigidBodyAPI) and ('openarm_' in prim.GetName() or prim.GetName()=='lift_carriage_link'):
                 PhysxSchema.PhysxContactReportAPI.Apply(prim).CreateThresholdAttr(0.)
-            if 'gripper' in path and '_finger' in path:
+            if any(part.endswith(('_ee_link1', '_ee_link2')) for part in path.split('/')):
                 if prim.HasAPI(UsdPhysics.CollisionAPI):
                     UsdShade.MaterialBindingAPI.Apply(prim).Bind(material,materialPurpose='physics')
+                    collision=PhysxSchema.PhysxCollisionAPI.Apply(prim)
+                    collision.CreateContactOffsetAttr(.001)
+                    collision.CreateRestOffsetAttr(0.)
+                    if self.settings.get('pinch_collision_approximation')=='convexDecomposition' and prim.GetTypeName()=='Mesh':
+                        UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr('convexDecomposition')
+                        decomposition=PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
+                        decomposition.CreateMaxConvexHullsAttr(64)
+                        decomposition.CreateHullVertexLimitAttr(64)
+                        decomposition.CreateVoxelResolutionAttr(100000)
+                        decomposition.CreateErrorPercentageAttr(.5)
+                        decomposition.CreateMinThicknessAttr(.0005)
+                        decomposition.CreateShrinkWrapAttr(True)
+                        self.finger_collision_overrides.append(path)
                 if prim.HasAPI(UsdPhysics.RigidBodyAPI):
                     PhysxSchema.PhysxRigidBodyAPI.Apply(prim).CreateMaxDepenetrationVelocityAttr(1.)
+        if self.settings.get('pinch_collision_approximation')=='convexDecomposition':
+            for robot_name in controls:
+                for side in ('left','right'):
+                    for finger in (1,2):
+                        if not any(f'/{robot_name}/' in path and f'/openarm_{side}_ee_link{finger}/' in path
+                                   for path in self.finger_collision_overrides):
+                            raise RelayFault(f'Missing native finger collision configuration: {robot_name} {side} {finger}')
         self.targets = target_order(scene)
         self.pusher.start_permitted = self.allow_push
         self.pusher.sensor_period = .05
@@ -108,9 +138,16 @@ class RelayRuntime:
         self.grasp_forward = {w:{s:self.settings['grasp_forward_offset'] for s in ('left','right')} for w in ('A','B')}
         self.working_boxes={'A':None,'B':None}
         self.physics_valid=True
-        if self.perception == 'depth':
-            from relay_perception import SimDepthPerception
-            self.depth_sensor = SimDepthPerception(self)
+        if self.perception in ('depth','rgbd'):
+            if self.perception == 'rgbd':
+                from relay_rgbd_perception import ModelRGBDPerception
+                if isinstance(getattr(self,'depth_sensor',None),ModelRGBDPerception):
+                    self.depth_sensor.reset()
+                else:
+                    self.depth_sensor = ModelRGBDPerception(self)
+            else:
+                from relay_perception import SimDepthPerception
+                self.depth_sensor = SimDepthPerception(self)
             if self.skill_test=='handoff':
                 prior=np.eye(4)
                 prior[:3,3]=[*self.c['handoff']['slots'][1],self.c['handoff']['size'][2]]
@@ -175,11 +212,11 @@ class RelayRuntime:
 
     def gripping(self, who, index, side=None):
         prefix = '/World/Robots/Robot_'+who
-        paths=[p for p in self.box_contacts(index) if prefix in p and 'gripper' in p]
+        paths=[p for p in self.box_contacts(index) if prefix in p and any(p.endswith(f'_ee_link{i}') for i in (1,2))]
         if side is None:
             return bool(paths)
-        return all(any(f'openarm_{side}_gripper_{finger}_' in p and p.endswith('_finger') for p in paths)
-                   for finger in ('left','right'))
+        return all(any(p.endswith(f'openarm_{side}_ee_link{i}') for p in paths)
+                   for i in (1,2))
 
     def supported(self, index):
         return any('/Collisions/' in p or '/Crates/' in p for p in self.box_contacts(index))
@@ -314,7 +351,7 @@ class RelayRuntime:
                     self.refresh_handoff(0.)
                     self.handoff.commit(self.push_action)
                     self.inventory.transfer(box,'PUSHER','R')
-                    if self.perception == 'depth':
+                    if self.perception in ('depth','rgbd'):
                         prior=np.eye(4)
                         prior[:3,3]=[*self.c['handoff']['slots'][1],self.c['handoff']['size'][2]]
                         self.depth_sensor.set_prior(box,prior)
@@ -388,7 +425,7 @@ class RelayRuntime:
             for who in ('A','B'):
                 ctl = self.controls['Robot_'+who]
                 for name,value in self.joints(who).items():
-                    if name in ctl.targets and 'gripper' not in name:
+                    if name in ctl.targets and ctl.specs[name]['kind'] != 'gripper':
                         spec=ctl.specs[name]
                         if math.isfinite(value) and spec['lower']-.12<=value<=spec['upper']+.12:
                             ctl.targets[name] = ctl.sent[name] = float(np.clip(value,spec['lower'],spec['upper']))
@@ -437,10 +474,11 @@ class RelayRuntime:
         raise RelayFault(f'{who} joint tracking timeout, error={error:.3f}')
 
     def gripper(self, who, sides, closed, index=None, *, support=None):
-        target = {f'openarm_{s}_gripper_left_outer_knuckle_joint': self.settings['gripper_closed' if closed else 'gripper_open'] for s in sides}
+        target = {f'openarm_{s}_finger_joint1': (1 if s=='left' else -1)*self.settings['gripper_closed' if closed else 'gripper_open'] for s in sides}
         ctl = self.controls['Robot_'+who]
         torque=self.settings['single_gripper_torque_limit' if closed and len(sides)==1 else 'gripper_torque_limit']
         for n in target:
+            ctl.drives[n].GetStiffnessAttr().Set(self.settings['gripper_stiffness']*math.pi/180)
             ctl.drives[n].GetMaxForceAttr().Set(min(ctl.specs[n]['effort'],torque))
         for n,v in target.items():
             ctl.set_joint(n,v)
@@ -459,6 +497,16 @@ class RelayRuntime:
                 pose=self.observe(index)
                 if np.linalg.norm(pose[:3,3]-first[:3,3])>.06:
                     raise RelayFault('Crate moved excessively during closure')
+                if self.settings.get('freeze_contact_during_closure',False):
+                    q=self.joints(who)
+                    seated=all(self.gripping(who,index,s) and
+                               abs(q[f'openarm_{s}_finger_joint1'])<.9*self.settings['gripper_open']
+                               for s in sides)
+                    if seated:
+                        # Keep the seated wrists still while the fingers build
+                        # preload; chasing a compliant rim can tip the crate.
+                        yield from self.wait(.15)
+                        continue
                 hands={**self.anchored_hands[who],**self.hand_targets(who,pose,sides=sides)}
                 solution=self.ik.solve(hands,self.base(who),{n:ctl.sent[n] for n in self.ik.names},
                                        attempts=1,joint_window=.15,lift=ctl.sent['lift_joint'])
@@ -575,6 +623,9 @@ class RelayRuntime:
         ans = {}
         for side in sides:
             sign = 1 if side == 'left' else -1
+            frame_yaw = self.settings.get('gripper_frame_yaw_degrees',0.)
+            if isinstance(frame_yaw,dict):
+                frame_yaw = frame_yaw[side]
             if self.grasp_transforms[who] is not None:
                 t=box_pose @ self.grasp_transforms[who][side]
             else:
@@ -584,21 +635,27 @@ class RelayRuntime:
                 # Pinch across the rim, approaching diagonally from above and
                 # in front. Tilting about the closing axis preserves rim-normal
                 # closure while keeping the wrist within its height envelope.
+                pitch=Rotation.from_euler('x',self.settings['handoff_gripper_pitch_degrees' if who=='B' else 'gripper_pitch_degrees'],degrees=True).as_matrix()
                 local[:3,:3]=(nominal_rot @
                     Rotation.from_euler('z',-math.pi/2).as_matrix() @
-                    Rotation.from_euler('x',self.settings['handoff_gripper_pitch_degrees' if who=='B' else 'gripper_pitch_degrees'],degrees=True).as_matrix() @
-                    Rotation.from_euler('z',0 if side=='left' else math.pi).as_matrix())
+                    pitch @
+                    Rotation.from_euler('z',(0 if side=='left' else math.pi) +
+                        math.radians(frame_yaw)).as_matrix())
                 t=box_pose @ local
             t[:3,3]+=t[:3,2]*spread
             ans[side] = t
+        if getattr(self,'perception',None)=='rgbd':
+            self.depth_sensor.record_targets(who,ans,kind='rule_targets',box_pose=box_pose,spread=spread)
         return ans
 
     def rim_approach_targets(self,who,pose,progress=0.,sides=('left','right'), *, base_yaw=None):
         heading = {} if base_yaw is None else {'base_yaw':base_yaw}
-        if who=='B':
+        vertical = (self.settings['handoff_vertical_approach'] if who=='B' else
+                    self.settings.get('source_vertical_approach',0.))
+        if vertical:
             targets=self.hand_targets(who,pose,sides=sides,**heading)
             for t in targets.values():
-                t[2,3]+=self.settings['handoff_vertical_approach']*(1-progress)
+                t[2,3]+=vertical*(1-progress)
             return targets
         return self.hand_targets(who,pose,spread=self.settings['approach_clearance']*(1-progress),sides=sides,**heading)
 
@@ -612,7 +669,7 @@ class RelayRuntime:
             target=self.rim_approach_targets(who,pose,progress,sides)
             target={**self.anchored_hands[who],**target}
             solution=self.ik.solve(target,self.base(who),{n:ctl.sent[n] for n in self.ik.names},
-                                   lift=ctl.sent['lift_joint'],attempts=1,joint_window=.2)
+                                   lift=ctl.sent['lift_joint'],attempts=self.settings.get('path_ik_attempts',1),joint_window=.2)
             if not solution.success:
                 raise RelayFault(f'Observed rim approach infeasible: {solution.position_error:.4f}m / {solution.angle_error:.3f}rad')
             for n,v in solution.joints.items():
@@ -656,6 +713,8 @@ class RelayRuntime:
 
     def hands(self, who, targets, *, seconds=2., lift=None, cartesian=True, settle=.3, planned=None):
         targets={**self.anchored_hands[who],**targets}
+        if getattr(self,'perception',None)=='rgbd':
+            self.depth_sensor.record_targets(who,targets,kind='motion_targets')
         self.hand_goals[who]={s:t.copy() for s,t in targets.items()}
         ctl=self.controls['Robot_'+who]
         if not cartesian:
@@ -666,7 +725,8 @@ class RelayRuntime:
                 raise RelayFault(f'{who} whole-body IK infeasible: {solution.position_error:.4f}m / {solution.angle_error:.3f}rad')
             yield from self.move_joints(who,solution.joints,minimum=seconds)
             return
-        paths=planned if planned is not None else self.plan_hands(who,targets,seconds=seconds,lift=lift)
+        paths=planned if planned is not None else self.plan_hands(who,targets,seconds=seconds,lift=lift,
+            attempts=self.settings.get('path_ik_attempts',1))
         motion_seconds=seconds*self.settings.get('motion_time_scale',1.)
         for target in paths:
             limits={n:min(ctl.specs[n]['velocity'],ctl.cfg[ctl.specs[n]['kind']]['command_velocity_limit']) for n in target}
@@ -694,6 +754,8 @@ class RelayRuntime:
             self.controls['Robot_'+who].stop()
 
     def dock(self, who, position, *, handoff=False, far=False, prepare=None, placement_target=None, dock_distance=None):
+        if handoff:
+            far = who == 'A'
         self.last_dock[who] = dict(far=far, handoff=handoff)
         angle = pallet_yaw(self.c)
         if angle and not handoff:
@@ -744,6 +806,13 @@ class RelayRuntime:
         if handoff:
             # Approach front or rear in its clear aisle, never across the table.
             aisle=self.settings['source_rear_aisle_y'] if far else self.settings['transit_y']
+            if who=='B':
+                # Observe/unfold at the dedicated viewing station before
+                # approaching. Do not move the camera away during inference.
+                if prepare is not None:
+                    yield from prepare
+                yield from self.navigate(who,[x,y],yaw)
+                return
             travel=self.navigate(who,[x,aisle],yaw)
             if prepare is not None:
                 yield from self.move_and_prepare(who,travel,prepare)
@@ -767,6 +836,7 @@ class RelayRuntime:
     def retreat(self, who, *, far=False, handoff=False, handoff_far=False):
         b=self.base(who)
         if handoff:
+            far = who == 'A'
             yaw=-math.pi/2 if far else math.pi/2
             aisle=self.settings['source_rear_aisle_y'] if far else self.settings['transit_y']
             yield from self.navigate(who,[b[0],aisle],yaw)
@@ -785,54 +855,30 @@ class RelayRuntime:
                 self.event(who,'BASE_RETREAT_WITH_LOAD',box=self.held[who])
             yield from self.navigate(who,[lane[0],b[1]],b[3],preserve_posture=True)
             if who=='A' and self.held[who] is not None:
-                # Centre-rim grasps need a small roll while retracting; a pure
-                # horizontal 15 cm pull crosses an infeasible arm configuration.
-                pose=self.upright_pose(self.observe(self.held[who]))
+                index=self.held[who]
+                required=self.c['source_stack']['rows']*self.c['source_stack']['pitch'][1]/2+.10
+                clearance=self.source_side_clearance(index,direction)
+                if clearance<required:
+                    # Obtain clearance with the chassis, before any arm motion.
+                    # The extra margin absorbs base arrival and vision errors.
+                    extra=required-clearance+.015
+                    base=self.base(who)
+                    point=base[:2]-direction*extra
+                    self.check_source_retreat_corridor(who,base[:2],point)
+                    self.event(who,'CLEAR_SOURCE_WITH_FIXED_GRASP',box=index,distance=float(extra),
+                               clearance_before=clearance,required=required)
+                    yield from self.navigate(who,point,base[3],preserve_posture=True)
+                    lane[0]=point[0]
+                clearance=self.source_side_clearance(index,direction)
+                if clearance<required:
+                    raise RelayFault('Source clearance not established; refusing arm retraction')
+                self.event(who,'SOURCE_CLEARANCE_VERIFIED',box=index,clearance=clearance,required=required)
+                pose=self.upright_pose(self.observe(index))
                 pose[:2,3]-=direction*self.settings['source_retreat_retract']
-                pose[2,3]+=self.settings['source_retreat_raise']
-                axis=np.array([math.cos(b[3]),math.sin(b[3]),0.])
-                roll=Rotation.from_rotvec(axis*math.radians(self.settings['source_retreat_roll_degrees'])).as_matrix()
-                pose[:3,:3]=roll @ pose[:3,:3]
-                self.event(who,'PREPARE_RETREAT_CARRY',box=self.held[who])
+                # Keep the measured box height: no extra lift near the upper stop.
+                self.event(who,'PREPARE_RETREAT_CARRY',box=index)
                 targets=self.hand_targets(who,pose)
-                try:
-                    planned=self.plan_hands(who,targets,seconds=3.)
-                except RelayFault as exc:
-                    self.event(who,'RETREAT_PATH_REJECTED',box=self.held[who],reason=str(exc))
-                    # Keep the established pinch while obtaining clearance.
-                    # Do not lower or tilt a box still over the dense stack.
-                    clearance=self.source_side_clearance(self.held[who],direction)
-                    required=self.c['source_stack']['rows']*self.c['source_stack']['pitch'][1]/2+.10
-                    extra=max(0.,required-clearance)
-                    if extra>.15:
-                        raise RelayFault('Source retreat needs more than the bounded outward clearance corridor')
-                    if extra:
-                        base=self.base(who)
-                        point=base[:2]-direction*extra
-                        self.event(who,'CLEAR_SOURCE_WITH_FIXED_GRASP',box=self.held[who],distance=extra)
-                        yield from self.navigate(who,point,base[3],preserve_posture=True)
-                        lane[0]=point[0]
-                    if self.source_side_clearance(self.held[who],direction)<required-.008:
-                        raise RelayFault('Source clearance not established before alternate arm posture')
-                    # Prefer a level, short retraction. Only try a lower pose
-                    # after the box is entirely outside the stack footprint.
-                    failures=[]
-                    for retract,lower in ((.03,0.),(.03,.04),(.06,.04)):
-                        pose=self.upright_pose(self.observe(self.held[who]))
-                        pose[:2,3]-=direction*retract
-                        pose[2,3]-=lower
-                        if pose[2,3]<self.c['pallet']['size'][2]+.06:
-                            continue
-                        targets=self.hand_targets(who,pose)
-                        try:
-                            planned=self.plan_hands(who,targets,seconds=3.,attempts=4)
-                        except RelayFault as candidate_error:
-                            failures.append(str(candidate_error));continue
-                        self.event(who,'RETREAT_ALTERNATIVE_PLANNED',box=self.held[who],retract=retract,
-                                   lower=lower,segments=len(planned),end_lift=planned[-1]['lift_joint'])
-                        break
-                    else:
-                        raise RelayFault('No continuous source retreat alternative: '+'; '.join(failures))
+                planned=self.plan_hands(who,targets,seconds=3.,attempts=self.settings.get('path_ik_attempts',4))
                 yield from self.hands(who,targets,seconds=3.,planned=planned)
             if self.held[who] is not None:
                 pose=self.observe(self.held[who])
@@ -862,6 +908,27 @@ class RelayRuntime:
             yield from self.navigate(who,[outer,self.settings['transit_y']])
         else:
             yield from self.navigate(who,[b[0],self.settings['transit_y']])
+
+    def check_source_retreat_corridor(self,who,start,end):
+        """Conservative chassis swept bounds against scene obstacles and robot B."""
+        start,end=np.asarray(start),np.asarray(end)
+        if np.linalg.norm(end-start)>.35:
+            raise RelayFault('Source clearance requires excessive extra retreat; check perception')
+        radius=.43  # Same conservative chassis envelope as navigation_demo_config.
+        low=np.minimum(start,end)-radius-.05
+        high=np.maximum(start,end)+radius+.05
+        floor=np.asarray(self.c['room']['floor_size'][:2])/2
+        if np.any(low < -floor) or np.any(high > floor) or high[1]>self.c['room']['back_wall_y']-.1:
+            raise RelayFault('Source retreat corridor reaches the room boundary')
+        obstacles=[('handoff',np.asarray(self.c['handoff']['center']),np.asarray(self.c['handoff']['size'][:2])/2)]
+        half=np.asarray(world_half_extent(self.c['pallet']['size'][:2],pallet_yaw(self.c)))
+        for name in ('source','target'):
+            obstacles.append((name+' pallet',np.asarray(self.c['pallet'][name]),half))
+        if getattr(self,'robots',None):
+            obstacles.append(('other robot',self.base('B' if who=='A' else 'A')[:2],np.array([radius,radius])))
+        for name,center,extent in obstacles:
+            if np.all(high>center-extent) and np.all(low<center+extent):
+                raise RelayFault('Source retreat corridor blocked by '+name)
 
     def source_side_clearance(self,index,direction):
         pose=self.observe(index)
@@ -922,7 +989,7 @@ class RelayRuntime:
         pose[2,3]=self.c['handoff']['size'][2]+clearance
         # Retract first, then raise, to stay inside the high-position workspace.
         retract=pose.copy()
-        retract[2,3]=max(float(self.observe(index)[2,3]),self.settings['handoff_carry_staging_height'])
+        retract[2,3]=max(float(self.observe(index)[2,3]),self.c['handoff']['size'][2]+self.settings['handoff_carry_staging_clearance'])
         legs,chosen=self.plan_handoff_carry(index,retract,pose)
         self.event(who,'HANDOFF_CARRY_PLANNED',box=index,**chosen)
         for box_pose,goal,path,seconds in legs:
@@ -1016,7 +1083,7 @@ class RelayRuntime:
         strategy,profile,primary_lateral=self.source_carry_strategy(index)
         primary_forward=float(profile['forward'])
         staging=staging.copy()
-        staging[2,3]=max(float(observed[2,3]),float(profile['staging_height']))
+        staging[2,3]=max(float(observed[2,3]),self.c['handoff']['size'][2]+float(profile['staging_clearance']))
         forwards=list(dict.fromkeys([primary_forward,round(float(np.clip(relative[0],.50,.63)),3),
                                      *profile['fallback_forward']]))
         failures=[];valid=[]
@@ -1094,6 +1161,11 @@ class RelayRuntime:
         solution=self.ik.solve(pre,future,q,attempts=4)
         if not solution.success:
             raise RelayFault('Handoff pregrasp posture is outside the future dock workspace')
+        # Capture at the viewing station, then unfold outside the tabletop's
+        # swept volume. The subsequent dock keeps this posture on approach.
+        self.event(who,'RETREAT_TO_UNFOLD',box=index)
+        base=self.base(who)
+        yield from self.navigate(who,[base[0],self.settings['transit_y']],base[3],preserve_posture=True)
         yield from self.move_joints(who,solution.joints,minimum=4.)
 
     def confirm_pregrasp(self,who,index,sides):
@@ -1185,7 +1257,7 @@ class RelayRuntime:
         raised=self.actual_hands(who,commanded=True)[exposed].copy()
         raised[:3,3]+=shift
         yield from self.hands(who,{exposed:raised},seconds=3.)
-        if self.perception=='depth':
+        if self.perception in ('depth','rgbd'):
             prior=pose.copy()
             prior[:3,3]+=shift
             self.depth_sensor.set_prior(index,prior)
@@ -1199,8 +1271,9 @@ class RelayRuntime:
         self.anchored_hands[who]={exposed:self.actual_hands(who,commanded=True)[exposed].copy()}
         self.event(who,'SECOND_HAND_JOIN',box=index,side=other)
         # Recompute the second rim centre from the tilted box's observed pose.
-        pre=self.hand_targets(who,observed,spread=self.settings['approach_clearance'],sides=(other,))
-        yield from self.hands(who,pre,seconds=3.)
+        pre=self.rim_approach_targets(who,observed,sides=(other,))
+        yield from self.hands(who,pre,seconds=3.,
+                              cartesian=not self.settings.get('second_hand_joint_approach',False))
         if not self.gripping(who,index,exposed):
             raise RelayFault('First gripper lost contact while the second hand approached')
         yield from self.approach_rim(who,index,(other,))
@@ -1232,7 +1305,7 @@ class RelayRuntime:
         forward=Rotation.from_euler('z',self.base(who)[3]).as_matrix()[:,0]
         for t in unfold.values():
             distance=float(np.dot(t[:3,3]-self.base(who)[:3],forward))
-            t[:3,3]-=forward*min(.20,max(0.,distance-.28))
+            t[:3,3]-=forward*min(self.settings.get('source_unfold_retract',.20),max(0.,distance-.28))
         if who!='B':
             yield from self.hands(who,unfold,cartesian=False)
         yield from self.hands(who,{s:pre[s] for s in sides},seconds=3.)
@@ -1241,7 +1314,7 @@ class RelayRuntime:
         yield from self.close_on_rim(who,index,sides)
         self.events.append(dict(t=self.time,robot=who,state='CLAMP_EVIDENCE',box=index,
             contacts=sorted(self.box_contacts(index)),
-            gripper_positions={s:float(self.joints(who)[f'openarm_{s}_gripper_left_outer_knuckle_joint']) for s in sides}))
+            gripper_positions={s:float(self.joints(who)[f'openarm_{s}_finger_joint1']) for s in sides}))
         if not all(self.gripping(who,index,s) for s in sides):
             raise RelayFault(f'{who} no verified gripper contact on box {index}; contacts={sorted(self.box_contacts(index))}')
         if assisted:
@@ -1252,7 +1325,9 @@ class RelayRuntime:
         # exist, increase holding effort before carrying its weight and moment.
         ctl=self.controls['Robot_'+who]
         for side in ('left','right'):
-            name=f'openarm_{side}_gripper_left_outer_knuckle_joint'
+            name=f'openarm_{side}_finger_joint1'
+            ctl.drives[name].GetStiffnessAttr().Set(
+                self.settings.get('hold_gripper_stiffness',self.settings['gripper_stiffness'])*math.pi/180)
             ctl.drives[name].GetMaxForceAttr().Set(min(ctl.specs[name]['effort'],self.settings['hold_gripper_torque_limit']))
         yield from self.wait(.5)
         if not all(self.gripping(who,index,s) for s in ('left','right')):
@@ -1262,11 +1337,15 @@ class RelayRuntime:
         self.grasp_transforms[who]={s:np.linalg.inv(pose) @ t for s,t in self.actual_hands(who).items()}
         clearance=self.settings['handoff_pick_clearance'] if who=='B' else self.settings['lift_clearance']
         pose[2,3]+=clearance
+        if who=='A':
+            heading=self.base(who)[3]
+            pose[:2,3]-=self.settings.get('source_lift_retreat',0.)*np.array([math.cos(heading),math.sin(heading)])
         if who=='B':
             pose[:3,:3]=Rotation.from_euler('x',self.settings['handoff_pick_tilt_degrees'],degrees=True).as_matrix()
+        lift_goal=pose.copy()
         self.event(who,'TEST_LIFT',box=index)
         yield from self.hands(who,self.hand_targets(who,pose),seconds=3.)
-        if self.perception == 'depth':
+        if self.perception in ('depth','rgbd'):
             self.depth_sensor.set_prior(index,pose)
         required_rise=.015 if who=='B' else .045
         if self.crates[index].get_world_pose()[0][2] < start_z+required_rise:
@@ -1276,11 +1355,17 @@ class RelayRuntime:
         self.held[who]=index
         # Level only after clearing the support; keep both measured grasps rigid.
         pose=self.observe(index)
+        if who=='A' and self.settings.get('source_lift_retreat',0.):
+            away=-np.array([math.cos(self.base(who)[3]),math.sin(self.base(who)[3])])
+            # Frictional settling can consume the requested stack clearance.
+            # Preserve that clearance when leveling instead of moving back
+            # toward the neighbouring crate with the observed, sagged pose.
+            pose[:2,3]+=away*max(0.,float(np.dot(lift_goal[:2,3]-pose[:2,3],away)))
         pose[:3,:3]=(Rotation.from_euler('x',self.settings['handoff_pick_tilt_degrees'],degrees=True).as_matrix()
                        if who=='B' else Rotation.from_euler('z',self.grasp_object_yaw[who]).as_matrix())
         pose[2,3]=max(float(pose[2,3]),start_z+clearance)
         yield from self.hands(who,self.hand_targets(who,pose),seconds=3.)
-        yield from self.wait(1.)
+        yield from self.wait(self.settings.get('grasp_hold_seconds',1.))
         final=self.observe(index)
         sx,sy,_=self.c['crate']['size']
         corners=np.array([[x,y,0.] for x in (-sx/2,sx/2) for y in (-sy/2,sy/2)])
@@ -1660,7 +1745,7 @@ class RelayRuntime:
             yield from self.navigate(who,b[:2]-forward[:2]*self.settings['push_base_retreat'],
                                      math.atan2(forward[1],forward[0]))
             yield from self.wait(.5)
-            if self.perception=='depth':
+            if self.perception in ('depth','rgbd'):
                 self.depth_sensor.set_prior(index,target)
             pose=self.observe(index)
             offset=np.abs(pose[:2,3]-support_center)
@@ -1696,7 +1781,7 @@ class RelayRuntime:
         yaw=math.atan2(forward[1],forward[0])
         while self.time-began<30.:
             pose=self.observe(index)
-            if self.perception=='depth':
+            if self.perception in ('depth','rgbd'):
                 self.depth_sensor.set_prior(index,pose)
             if math.acos(float(np.clip(pose[2,2],-1.,1.)))>math.radians(5.):
                 raise RelayFault('Crate tilted excessively during the base push')
@@ -1760,6 +1845,7 @@ class RelayRuntime:
         if self.skill_test=='handoff':
             self.event('A','FIXTURE_IDLE')
             return
+        yield from self.prepare_startup('A')
         for index in self.inventory.queue:
             spec=self.initial[index]
             deposit_slot=source_handoff_slot(self.c,spec)
@@ -1799,9 +1885,16 @@ class RelayRuntime:
     def run_b(self):
         if self.skill_test in ('grasp','direct','retreat'):
             return
-        yield from self.stow('B')
-        yield from self.navigate('B',[1.,self.settings['transit_y']])
+        yield from self.prepare_startup('B')
         for _ in range(self.count):
+            # Return via the front aisle, then face the entire receiving box.
+            slot_xy=self.c['handoff']['slots'][1]
+            view_xy=[slot_xy[0]-.08,slot_xy[1]-self.settings['b_handoff_observation_distance']]
+            base=self.base('B')
+            if np.linalg.norm(base[:2]-view_xy)>.008:
+                yield from self.navigate('B',[base[0],self.settings['transit_y']],math.pi/2)
+                yield from self.navigate('B',[view_xy[0],self.settings['transit_y']],math.pi/2)
+            yield from self.navigate('B',view_xy,math.pi/2)
             self.event('B','WAIT_RIGHT')
             start=self.time
             while True:
@@ -1849,6 +1942,20 @@ class RelayRuntime:
             yield from self.verify_placement('B',index,slot['position'])
         self.event('B','COMPLETE')
 
+    def prepare_startup(self, who):
+        """Back out with stationary arms before folding beside the handoff."""
+        base=self.base(who)
+        cx,cy=self.c['handoff']['center']
+        sx,sy,_=self.c['handoff']['size']
+        if abs(base[0]-cx)<sx/2+.5 and abs(base[1]-cy)<sy/2+.8:
+            self.event(who,'STARTUP_CLEARANCE')
+            aisle=self.settings['source_rear_aisle_y'] if base[1]>cy else self.settings['transit_y']
+            # Preserve the heading and arm commands throughout the retreat;
+            # never run the fold concurrently with this chassis movement.
+            yield from self.navigate(who,[base[0],aisle],base[3],preserve_posture=True)
+        self.event(who,'STARTUP_STOW')
+        yield from self.stow(who)
+
     def stow(self, who):
         """Keep the unused hand out of a crate's outward staging corridor."""
         if self.held[who] is not None:
@@ -1871,7 +1978,7 @@ class RelayRuntime:
             ctl=self.controls['Robot_'+who]
             frame_positions[who]={}
             for side in ('left','right'):
-                frame=f'openarm_{side}_gripper_grasp_link'
+                frame=f'openarm_{side}_ee_base_link'
                 path='/World/Robots/Robot_'+who+ctl.meta['frames'][frame]
                 frame_positions[who][side]=(physical.frame_position(path,snapshot) if physical is not None else
                     list(UsdGeom.Xformable(stage.GetPrimAtPath(path)).ComputeLocalToWorldTransform(0).ExtractTranslation()))
@@ -1889,17 +1996,18 @@ class RelayRuntime:
                     loop_performance=getattr(self,'loop_performance',{}),
                     perception=self.perception, hardware_validated=False,
                     perception_details=('ideal ray-hit instance labels, synthetic pan/tilt depth, known-model local 6D registration'
-                                        if self.perception=='depth' else 'simulator object poses; commissioning only'),
+                                        if self.perception=='depth' else ('URDF RGB-D + NanoOWL + NanoSAM + FoundationPose; task-layout association' if self.perception=='rgbd' else 'simulator object poses; commissioning only')),
                     handoff_sensing='ideal pose-based region sensors',
                     force_control='compliant position drives; no wrist force sensor loop',
                     self_collision_enabled=False,
+                    finger_collision_overrides=list(self.finger_collision_overrides),
                     physics_state_valid=self.physics_valid,
                     task_settings=self.settings,
                     skill_test=self.skill_test,
                     source_box=self.source_box,
                     fixture_initialization=self.skill_test in ('direct','handoff','retreat'),
                     fixture_target_slot=self.handoff_target if self.skill_test=='handoff' else None,
-                    usd_grasp_frame_positions=frame_positions,
+                    usd_ee_base_frame_positions=frame_positions,
                     synchronized_motion_samples=self.synchronized_samples,
                     localization='simulator_base_pose',
                     object_pose_writes_after_initialization=0, attachments_used=False,
@@ -1912,6 +2020,9 @@ class RelayRuntime:
                     boxes=[dict(id=i,position=c.get_world_pose()[0].tolist(),
                                 quaternion=c.get_world_pose()[1].tolist()) for i,c in enumerate(self.crates)])
         (OUTPUTS/'relay_demo_report.json').write_text(json.dumps(report,indent=2))
+        if self.perception=='rgbd':
+            from runlog import write_json
+            write_json(self.depth_sensor.root/'relay_report.json',report)
         with (OUTPUTS/'relay_demo_runs.jsonl').open('a') as history:
             history.write(json.dumps(dict(timestamp=time.time(),passed=report['passed'],
                 skill_passed=report['skill_passed'],error=self.error,simulation_seconds=self.time,

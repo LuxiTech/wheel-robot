@@ -8,13 +8,35 @@ from relay_runtime import RelayRuntime
 from relay_task import RelayFault
 
 class PregraspTests(unittest.TestCase):
+    def test_native_gripper_reaches_lower_table_pregrasp_and_grasp(self):
+        from whole_body_control import WholeBodyIK
+        rt=RelayRuntime.__new__(RelayRuntime)
+        rt.c=json.loads((ROOT/'config/relay_config.json').read_text())
+        rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
+        rt.settings.update(json.loads((ROOT/'config/profiles/relay_pinch_grasp.json').read_text()))
+        rt.grasp_transforms={'B':None};rt.grasp_forward={'B':{'left':0.,'right':0.}}
+        rt.ik=WholeBodyIK(ROOT/'assets/robots/relay/relay_robot.urdf',rt.settings['tcp'])
+        slot=rt.c['handoff']['slots'][1]
+        base=np.array([slot[0]-.08,slot[1]-rt.settings['b_handoff_dock_distance'],0.,math.pi/2])
+        rt.base=lambda who:base
+        pose=np.eye(4);pose[:3,3]=[*slot,rt.c['handoff']['size'][2]]
+        q=dict.fromkeys(rt.ik.names,0.)
+        q.update(json.loads((ROOT/'config/relay_robot_config.json').read_text())['stow'])
+        q.update(openarm_left_joint1=-1.4,openarm_right_joint1=1.4)
+        for progress in np.linspace(0,1,9):
+            targets=rt.rim_approach_targets('B',pose,progress,base_yaw=base[3])
+            result=rt.ik.solve(targets,base,q,attempts=4)
+            self.assertTrue(result.success,(progress,result.position_error,result.angle_error))
+            q=result.joints
+
     def test_future_dock_grasp_does_not_depend_on_departure_heading(self):
         rt=RelayRuntime.__new__(RelayRuntime)
         rt.c=json.loads((ROOT/'config/relay_config.json').read_text())
         rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
         rt.grasp_transforms={'B':None};rt.pose_symmetry={};rt.grasp_forward={}
         pose=np.eye(4);pose[:3,3]=[*rt.c['handoff']['slots'][1],rt.c['handoff']['size'][2]]
-        rt.observe=lambda index:pose.copy()
+        actions=[]
+        rt.observe=lambda index:(actions.append('observe') or pose.copy())
         rt.event=lambda *a,**k:None
         rt.joints=lambda who:{}
         def solve(targets,base,q,**kw):
@@ -26,14 +48,25 @@ class PregraspTests(unittest.TestCase):
                 np.testing.assert_allclose(target,expected[side])
             return SimpleNamespace(success=True,joints={})
         rt.ik=SimpleNamespace(solve=solve)
-        def move(*a,**kw):yield
+        def move(*a,**kw):
+            self.assertEqual(actions[-1],'retreated')
+            actions.append('unfold')
+            yield
         rt.move_joints=move
+        def retreat(who,xy,yaw,**kw):
+            self.assertEqual(actions[-1],'observe')
+            self.assertEqual(xy[1],rt.settings['transit_y'])
+            self.assertTrue(kw['preserve_posture'])
+            yield
+            actions.append('retreated')
+        rt.navigate=retreat
         rt.base=lambda who:np.array([.26,.17,0.,math.pi/2])
         expected=rt.rim_approach_targets('B',pose)
         for yaw in (-math.pi,-.001,0.,.001,math.pi/2,math.pi):
             with self.subTest(departure_yaw=yaw):
                 rt.base=lambda who:np.array([1.55,-.95,0.,yaw])
                 list(rt.prepare_handoff_pick('B',14))
+                self.assertEqual(actions[-3:],['observe','retreated','unfold'])
 
     def test_handoff_approach_descends_vertically_without_sideways_insertion(self):
         rt=RelayRuntime.__new__(RelayRuntime)

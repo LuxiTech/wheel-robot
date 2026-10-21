@@ -1,0 +1,75 @@
+name: wheel-robot-grasp
+services:
+  sim:
+    extends:
+      file: compose.yaml
+      service: isaac-sim
+    profiles: [sim]
+    volumes:
+      - ./ros2_ws/src/wheel_grasp_core:/workspace/grasp_core:ro
+      - ./tools:/workspace/tools:ro
+  sdk_bridge:
+    image: wheel-robot-sdk-bridge:ba0c732
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sdk-bridge
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    working_dir: /workspace
+    environment:
+      HOME: /tmp
+      ROS_LOCALHOST_ONLY: "1"
+      ROS_DOMAIN_ID: "68"
+      PYTHONNOUSERSITE: "1"
+    volumes:
+      - ./ros2_ws/src/wheel_grasp_core:/workspace/grasp_core:ro
+      - ./config:/workspace/config:ro
+      - ./tools:/workspace/tools:ro
+      - ./tests:/workspace/tests:ro
+      - ./assets:/workspace/assets:ro
+      - ./outputs:/workspace/outputs:rw
+    command: [wheel-grasp, doctor]
+  perception:
+    image: wheel-robot-grasp-perception:fp-a1b694b
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.grasp-perception
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    init: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    shm_size: 2gb
+    environment:
+      HOME: /tmp
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${PERCEPTION_GPU_ID:-0}"]
+              capabilities: [gpu]
+    volumes:
+      - ./ros2_ws/src/wheel_grasp_core:/workspace/grasp_core:ro
+      - ./config:/workspace/config:ro
+      - ./tools:/workspace/tools:ro
+      - ./tests:/workspace/tests:ro
+      - ./assets:/workspace/assets:ro
+      - ./assets/models/engines:/workspace/assets/models/engines:rw
+      - ./outputs:/workspace/outputs:rw
+      - ./.runtime/grasp:/workspace/.runtime/grasp:rw
+    command: [tools/grasp/check_environment.py]
+  download:
+    extends: sdk_bridge
+    profiles: [tools]
+    volumes:
+      - ./assets/models:/workspace/assets/models:rw
+    entrypoint: [python3]
+    command: [tools/grasp/download_models.py]

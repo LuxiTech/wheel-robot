@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_urdf": "relay/relay_robot.urdf",
-  "model": "R680 + lift + OpenArm / AG95 substitute",
+  "model": "R680 + lift + OpenArm 2.0 (2026-10-19 supplied bundle) / original pinch grippers",
   "base": {
     "max_linear_speed": 1.0,
     "max_angular_speed": 1.5,
@@ -47,16 +47,21 @@
     "openarm_right_joint5": 0.0,
     "openarm_right_joint6": 0.0,
     "openarm_right_joint7": 0.0,
-    "lift_joint": 0.4
+    "lift_joint": 0.4,
+    "openarm_left_finger_joint1": 0.7854,
+    "openarm_right_finger_joint1": -0.7854
   },
   "provenance": {
-    "geometry_inertia_limits": "Supplied URDF; preserve original source and meshes",
+    "geometry_inertia_limits": "User-supplied r680_lift_openarm(1).rar, imported 2026-10-19; original URDF and resources preserved",
     "base_speed": "User estimates, not manufacturer-rated limits",
     "drive_gains_roller_geometry_and_wheel_torque": "Simulation tuning defaults; not measured hardware parameters",
     "wheel_dimensions": "Read from URDF; radius 0.07612 m; placement coordinates take precedence over inconsistent nominal wheel track",
     "payload": "4.1/6.0 kg supplied ratings include end effector; not verified in this environment",
-    "lift": "Supplied travel 0.4 m, velocity 0.05 m/s; lift_joint origin Z corrected -0.03 m to match shoulder height 106/506 mm above lift_bottom_reference_link. Drive gains are simulation tuning.",
-    "relay_gripper": "AG95 public substitute; not identified as the video gripper. Adapter approximate. Mimic tree replaces Gazebo closed loops."
+    "lift": "Supplied travel 0\u20130.4 m, velocity 0.05 m/s; original lift_joint origin preserved; shoulder height 136\u2013536 mm above lift_bottom_reference_link. Drive gains are simulation tuning.",
+    "head_camera": "D455 fixed to base_link per supplied URDF; does not follow lift travel. Original mount origin and optical frames preserved.",
+    "source_archive_sha256": "19fa5b51b9fa58af4d5d03133459278d7e38c35f065531bf84dd90351e967c0a",
+    "relay_source_urdf": "r680_lift_openarm_20261019/r680_lift_openarm/r680_lift_openarm_robot_viewer.urdf",
+    "relay_gripper": "Original supplied OpenArm pinch grippers; geometry, inertia, limits and mimic joints preserved."
   },
   "lift": {
     "stiffness": 100000.0,

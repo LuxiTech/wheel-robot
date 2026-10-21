@@ -1,0 +1,16 @@
+**
+!docker/
+!docker/Dockerfile.sdk-bridge
+!tools/
+!tools/grasp/
+!tools/grasp/container-entrypoint.sh
+!ros2_ws/
+!ros2_ws/src/
+!ros2_ws/src/**
+!third_party/
+!third_party/lift_robot_ros2/
+!third_party/lift_robot_ros2/Project/
+!third_party/lift_robot_ros2/Project/robot_interfaces/
+!third_party/lift_robot_ros2/Project/robot_interfaces/**
+**/__pycache__
+**/*.pyc

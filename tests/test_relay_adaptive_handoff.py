@@ -9,6 +9,19 @@ from relay_runtime import RelayRuntime
 from relay_task import RelayFault
 
 class AdaptiveHandoffTests(unittest.TestCase):
+    def test_carry_height_tracks_table_instead_of_old_absolute_height(self):
+        for height in (.45,.6):
+            rt,_,_=self.fixture()
+            rt.c['handoff']['size'][2]=height
+            rt.grasp_base_yaw={};rt.grasp_object_yaw={}
+            def inspect(index,staging,final):
+                self.assertAlmostEqual(staging[2,3],max(.62,height+.07))
+                self.assertAlmostEqual(final[2,3],height+.12)
+                raise RelayFault('captured planning targets')
+            rt.plan_handoff_carry=inspect
+            with self.assertRaisesRegex(RelayFault,'captured planning targets'):
+                list(rt.prepare_handoff_carry('A',0))
+
     def fixture(self):
         rt=RelayRuntime.__new__(RelayRuntime)
         rt.c=json.loads((ROOT/'config/relay_config.json').read_text())
@@ -89,7 +102,7 @@ class AdaptiveHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(RelayFault,'carry and deposit'):
             rt.plan_handoff_carry(0,staging,final)
         self.assertTrue(checked)
-        self.assertTrue(all(np.allclose(b,[-.26,.17,0.,math.pi/2]) for b in checked))
+        self.assertTrue(all(np.allclose(b,[-.26,1.33,0.,-math.pi/2]) for b in checked))
 
     def test_infeasible_fixed_reach_uses_candidate_and_checks_withdrawal(self):
         rt,staging,final=self.fixture();withdrawals=[]

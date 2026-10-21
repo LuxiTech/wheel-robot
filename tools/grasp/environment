@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+mkdir -p outputs/grasp assets/models/engines .runtime/grasp .cache/grasp-wheels
+compose=(docker compose -p wheel-robot-grasp -f compose.grasp.yaml)
+case "${1:-help}" in
+  relay) shift; exec python3 tools/grasp/run_relay_model.py "$@" ;;
+  run) shift; exec python3 tools/grasp/run_pipeline.py "$@" ;;
+  sources) exec python3 tools/grasp/bootstrap_sources.py ;;
+  build-sdk) exec "${compose[@]}" build sdk_bridge ;;
+  download) exec "${compose[@]}" --profile tools run --rm download ;;
+  verify-models) exec "${compose[@]}" --profile tools run --rm download tools/grasp/download_models.py --verify-only ;;
+  build-perception) exec "${compose[@]}" build perception ;;
+  check) exec "${compose[@]}" run --rm perception ;;
+  engines) shift; exec "${compose[@]}" run --rm perception tools/grasp/build_engines.py "$@" ;;
+  smoke) exec "${compose[@]}" run --rm perception tools/grasp/smoke_models.py ;;
+  capture) shift; exec "${compose[@]}" run --rm sdk_bridge wheel-grasp capture "$@" ;;
+  *) echo 'Usage: tools/grasp/environment {run [--cycles N --box X1 Y1 X2 Y2]|sources|build-sdk|download|verify-models|build-perception|check|engines [--model sam|owl|all]|smoke|capture ...}' ;;
+esac

@@ -108,13 +108,13 @@ class LayoutTests(unittest.TestCase):
         for value,expected in zip(p,[-2.5,.65,.13]):
             self.assertAlmostEqual(value,expected)
 
-    def test_source_front_rear_is_independent_of_left_deposit(self):
+    def test_a_always_deposits_from_rear_long_edge(self):
         from relay_task import source_handoff_far, source_handoff_slot
         initial=json.loads((ROOT/'assets/generated/relay/initial_state.json').read_text())['crates']
         ordered=[initial[i] for i in source_order(initial)[:6]]
         self.assertEqual([source_handoff_slot(self.scene,s) for s in ordered],[0]*6)
         self.assertEqual([source_handoff_far(self.scene,s) for s in ordered],
-                         [False,True,True,False,True,True])
+                         [True]*6)
 
     def test_rear_handoff_dock_and_retreat_stay_in_rear_aisle(self):
         from relay_runtime import RelayRuntime
@@ -155,8 +155,9 @@ class LayoutTests(unittest.TestCase):
             xy=self.scene['handoff']['slots'][slot]
             list(rt.dock(who,[*xy,.75],handoff=True))
             self.assertAlmostEqual(route[-1][0],xy[0]+(.08 if slot==0 else -.08))
-            self.assertAlmostEqual(route[-1][1],xy[1]-rt.settings['b_handoff_dock_distance' if who=='B' else 'handoff_dock_distance'])
-            self.assertEqual(route[-2],[route[-1][0],rt.settings['transit_y']])
+            self.assertAlmostEqual(route[-1][1],xy[1]+(1 if who=='A' else -1)*rt.settings['b_handoff_dock_distance' if who=='B' else 'handoff_dock_distance'])
+            if who=='A':
+                self.assertEqual(route[-2],[route[-1][0],rt.settings['source_rear_aisle_y']])
 
     def test_rotated_support_and_side_docking(self):
         import numpy as np
@@ -200,16 +201,68 @@ class LayoutTests(unittest.TestCase):
                 if y>0:
                     self.assertTrue(all(p[1]>0 for p in route))
 
-    def test_new_initial_layout_is_source_a_handoff_b_target(self):
+    def test_initial_robots_face_opposite_long_edges(self):
         a,b=self.scene['robots']
-        source=self.scene['pallet']['source']
-        target=self.scene['pallet']['target']
-        table=self.scene['handoff']['center']
-        self.assertTrue(source[0]<a['position'][0]<table[0]<b['position'][0]<target[0])
-        self.assertEqual(a['position'][1],source[1])
-        self.assertEqual(b['position'][1],target[1])
-        self.assertEqual(a['yaw'],math.pi)
-        self.assertEqual(b['yaw'],0.)
+        table=self.scene['handoff']
+        self.assertGreater(a['position'][1],table['center'][1]+table['size'][1]/2)
+        self.assertLess(b['position'][1],table['center'][1]-table['size'][1]/2)
+        self.assertEqual(a['yaw'],-math.pi/2)
+        self.assertEqual(b['yaw'],math.pi/2)
+        settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
+        self.assertAlmostEqual(b['position'][0],table['slots'][1][0]-.08)
+        self.assertAlmostEqual(b['position'][1],table['slots'][1][1]-settings['b_handoff_observation_distance'])
+
+    def test_b_waits_at_view_station_instead_of_transit_aisle(self):
+        from types import SimpleNamespace
+        from relay_runtime import RelayRuntime
+        rt=RelayRuntime.__new__(RelayRuntime)
+        rt.c=self.scene
+        rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
+        rt.skill_test=None;rt.count=1;rt.time=0.
+        rt.inventory=SimpleNamespace(owners={})
+        b=self.scene['robots'][1]
+        import numpy as np
+        rt.base=lambda who:np.array([*b['position'],b['yaw']])
+        route=[]
+        rt.navigate=lambda who,xy,yaw:(route.append((list(xy),yaw)) or iter(()))
+        rt.stow=lambda who:iter(())
+        rt.prepare_startup=lambda who:iter(())
+        rt.event=lambda *a,**kw:None
+        task=rt.run_b()
+        next(task)
+        task.close()
+        self.assertEqual(len(route),1)
+        np.testing.assert_allclose(route[0][0],b['position'][:2])
+        self.assertAlmostEqual(route[0][1],math.pi/2)
+
+    def test_startup_finishes_retreat_before_folding_on_both_sides(self):
+        from relay_runtime import RelayRuntime
+        import numpy as np
+        for who,robot in zip(('A','B'),self.scene['robots']):
+            rt=RelayRuntime.__new__(RelayRuntime)
+            rt.c=self.scene
+            rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
+            rt.base=lambda _:np.array([*robot['position'],robot['yaw']])
+            rt.event=lambda *a,**kw:None
+            actions=[]
+            def navigate(_,xy,yaw,**kw):
+                self.assertEqual(xy[0],robot['position'][0])
+                self.assertEqual(xy[1],rt.settings['source_rear_aisle_y' if who=='A' else 'transit_y'])
+                self.assertEqual(yaw,robot['yaw'])
+                self.assertTrue(kw['preserve_posture'])
+                actions.append('retreat_started')
+                yield
+                actions.append('retreat_finished')
+            def stow(_):
+                self.assertEqual(actions[-1],'retreat_finished')
+                actions.append('fold')
+                yield
+            rt.navigate=navigate;rt.stow=stow
+            task=rt.prepare_startup(who)
+            next(task)
+            self.assertEqual(actions,['retreat_started'])
+            list(task)
+            self.assertEqual(actions,['retreat_started','retreat_finished','fold'])
 
     def test_hand_targets_rotate_with_box_and_base(self):
         import numpy as np
@@ -289,94 +342,61 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(calls,[('hands',('left',)),('hands',('right',)),('gripper',('right',),True)])
         self.assertEqual(rt.anchored_hands['A'],{})
 
-    def test_fixed_source_retreat_clears_both_sides_before_longitudinal_travel(self):
+    def test_source_retreat_clears_stack_before_short_level_retraction(self):
         import numpy as np
         from scipy.spatial.transform import Rotation
         from relay_runtime import RelayRuntime
         from relay_task import RelayFault
         for far in (False,True):
             for follows in (False,True):
-                with self.subTest(far=far,follows=follows):
-                    rt=RelayRuntime.__new__(RelayRuntime)
-                    rt.c=self.scene
-                    rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
-                    sign=-1 if far else 1
-                    source_x=self.scene['pallet']['source'][0]
-                    base=np.array([source_x+sign*.895,.4,0.,0. if far else math.pi])
-                    pose=np.eye(4)
-                    pose[:3,:3]=Rotation.from_euler('z',math.pi/2).as_matrix()
-                    pose[:3,3]=[source_x+sign*.292,.4,.665]
-                    rt.base=lambda who:base.copy()
-                    rt.observe=lambda index:pose.copy()
-                    rt.held={'A':12}
-                    rt.event=lambda *a,**kw:None
-                    rt.hand_targets=lambda who,target:target
-                    rt.plan_hands=lambda *args,**kwargs:[{}]
-                    route=[]
-                    def hands(who,target,**kw):
-                        self.assertEqual(len(route),1, 'Retreat chassis before changing arm posture')
-                        if follows:
-                            pose[:]=target
-                        yield
-                    def navigate(who,xy,yaw=None,**kwargs):
-                        route.append(list(xy))
-                        if len(route)==1:
-                            self.assertTrue(kwargs.get('preserve_posture'))
-                        if follows:
-                            pose[:2,3]+=np.asarray(xy)-base[:2]
-                        base[:2]=xy
-                        yield
-                    rt.hands=hands
-                    rt.navigate=navigate
-                    if follows:
-                        list(rt.retreat('A',far=far))
-                        self.assertEqual(route[-1],[rt.settings['fixed_pallet_lanes']['A'][int(far)],rt.settings['transit_y']])
-                        self.assertGreater(sign*(pose[0,3]-source_x)-.15,.35)
-                    else:
-                        with self.assertRaises(RelayFault):
-                            list(rt.retreat('A',far=far))
-                        self.assertEqual(len(route),1)
-                        self.assertEqual(route[0][1],.4)
+                rt=RelayRuntime.__new__(RelayRuntime)
+                rt.c=self.scene
+                rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
+                sign=-1 if far else 1
+                center=self.scene['pallet']['source'][0]
+                base=np.array([center+sign*.895,.4,0.,0. if far else math.pi])
+                pose=np.eye(4);pose[:3,:3]=Rotation.from_euler('z',math.pi/2).as_matrix()
+                pose[:3,3]=[center+sign*.292,.4,.665]
+                rt.base=lambda who:base.copy()
+                rt.observe=lambda index:pose.copy()
+                rt.held={'A':12};rt.event=lambda *a,**kw:None
+                rt.hand_targets=lambda who,target:target
+                route=[];executed=[]
+                def navigate(who,xy,yaw=None,**kw):
+                    route.append(list(xy))
+                    if len(route)<=2:self.assertTrue(kw['preserve_posture'])
+                    if follows:pose[:2,3]+=np.asarray(xy)-base[:2]
+                    base[:2]=xy
+                    yield
+                def plan(who,target,**kw):
+                    self.assertGreaterEqual(sign*(pose[0,3]-center)-.15,.4)
+                    self.assertAlmostEqual(target[0,3]-pose[0,3],sign*.03)
+                    self.assertAlmostEqual(target[2,3],pose[2,3])
+                    return [{}]
+                def hands(who,target,**kw):
+                    executed.append(target.copy());pose[:]=target
+                    yield
+                rt.navigate=navigate;rt.plan_hands=plan;rt.hands=hands
+                if follows:
+                    list(rt.retreat('A',far=far))
+                    self.assertEqual(len(executed),1)
+                    self.assertEqual(len(route),3)
+                    self.assertEqual(route[-1][0],route[-2][0])
+                else:
+                    with self.assertRaises(RelayFault):list(rt.retreat('A',far=far))
+                    self.assertEqual(executed,[])
 
-    def test_retreat_fallback_clears_stack_before_replanning_both_sides(self):
+    def test_retreat_corridor_allows_clear_16cm_but_rejects_table_and_robot(self):
         import numpy as np
-        from scipy.spatial.transform import Rotation
         from relay_runtime import RelayRuntime
         from relay_task import RelayFault
-        for far in (False,True):
-            rt=RelayRuntime.__new__(RelayRuntime)
-            rt.c=self.scene
-            rt.settings=json.loads((ROOT/'config/relay_demo_config.json').read_text())
-            sign=-1 if far else 1
-            center=self.scene['pallet']['source'][0]
-            base=np.array([center+sign*.895,.4,0.,0. if far else math.pi])
-            pose=np.eye(4);pose[:3,:3]=Rotation.from_euler('z',math.pi/2).as_matrix()
-            pose[:3,3]=[center+sign*.292,.4,.42]
-            rt.base=lambda who:base.copy()
-            rt.observe=lambda index:pose.copy()
-            rt.held={'A':6};rt.event=lambda *a,**kw:None
-            rt.hand_targets=lambda who,target:target
-            route=[];plans=[];executed=[]
-            def navigate(who,xy,yaw=None,**kwargs):
-                route.append(list(xy));pose[:2,3]+=np.asarray(xy)-base[:2];base[:2]=xy
-                yield
-            def plan(who,target,**kwargs):
-                plans.append(target.copy())
-                if len(plans)==1:raise RelayFault('fixture joint limit')
-                self.assertEqual(len(route),2)
-                self.assertGreaterEqual(sign*(pose[0,3]-center)-.15,.399)
-                self.assertAlmostEqual(target[2,3],pose[2,3])
-                return [{'lift_joint':.35}]
-            def hands(who,target,**kwargs):
-                self.assertEqual(kwargs['planned'],[{'lift_joint':.35}])
-                executed.append(target.copy());pose[:]=target
-                yield
-            rt.navigate=navigate;rt.plan_hands=plan;rt.hands=hands
-            list(rt.retreat('A',far=far))
-            self.assertEqual(len(executed),1)
-            self.assertEqual(len(route),3)
-            self.assertEqual(route[0][1],route[1][1])
-            self.assertEqual(route[-1][0],route[1][0])
+        rt=RelayRuntime.__new__(RelayRuntime);rt.c=self.scene
+        rt.check_source_retreat_corridor('A',[-1.55,.4],[-1.375,.4])
+        with self.assertRaisesRegex(RelayFault,'handoff'):
+            rt.check_source_retreat_corridor('A',[-1.3,.4],[-1.0,.4])
+        rt.robots={'B':object()};rt.base=lambda who:np.array([-1.0,.4,0.,0.])
+        with self.assertRaisesRegex(RelayFault,'other robot'):
+            rt.check_source_retreat_corridor('A',[-1.55,.4],[-1.375,.4])
 
     def test_split_carry_checks_final_lift_before_executing_first_leg(self):
         import numpy as np

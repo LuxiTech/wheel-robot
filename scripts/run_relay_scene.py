@@ -7,6 +7,10 @@ import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import ROOT, OUTPUTS
+if '--perception' in sys.argv and 'rgbd' in sys.argv:
+    sys.path.insert(0,str(ROOT/'tools/grasp'))
+    sys.path.insert(0,str(ROOT/'ros2_ws/src/wheel_grasp_core'))
+    sys.path.insert(0,'/workspace/grasp_core')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gui', action='store_true')
@@ -16,7 +20,9 @@ parser.add_argument('--render-benchmark', action='store_true', help='Start a bou
 parser.add_argument('--test', action='store_true')
 parser.add_argument('--capture', action='store_true')
 parser.add_argument('--steps', type=int, default=0)
+parser.add_argument('--exit-on-finish', action='store_true', help='Exit a headless diagnostic when its task finishes')
 parser.add_argument('--auto', action='store_true', help='Run autonomous relay commissioning')
+parser.add_argument('--start-immediately', action='store_true', help='Start the requested task when the GUI is ready')
 parser.add_argument('--navigation-demo', action='store_true', help='A* navigation between fixed pickup stations; no manipulation')
 parser.add_argument('--localization', choices=['ground_truth','fast_livo2'], default='ground_truth')
 parser.add_argument('--navigation-goal', help='Visit one fixed station instead of the complete navigation tour')
@@ -26,8 +32,19 @@ parser.add_argument('--boxes', type=int, default=18)
 parser.add_argument('--skill-test', choices=['grasp','direct','handoff','retreat'], help='Isolated physical skill; retreat preloads earlier source boxes at their target slots')
 parser.add_argument('--handoff-target', type=int, help='Target sequence index for handoff fixture; initialize earlier target slots as occupied')
 parser.add_argument('--source-box', type=int, help='Select a source crate for a single-box relay or dense grasp test without moving its neighbours')
-parser.add_argument('--perception', choices=['ground_truth','depth'], default='ground_truth')
+parser.add_argument('--perception', choices=['ground_truth','depth','rgbd'], default='ground_truth')
+parser.add_argument('--task-profile', type=Path, help='JSON overrides for relay commissioning settings')
 args = parser.parse_args()
+task_overrides={}
+if args.task_profile:
+    if args.navigation_demo:
+        parser.error('--task-profile is only available for relay manipulation')
+    try:
+        task_overrides=json.loads(args.task_profile.read_text())
+        if not isinstance(task_overrides,dict):
+            raise ValueError('expected a JSON object')
+    except (OSError,ValueError) as exc:
+        parser.error(f'Invalid task profile: {exc}')
 if args.physics_only and (args.gui or args.capture or args.navigation_demo or args.perception != "ground_truth"):
     parser.error("--physics-only currently supports headless ground-truth relay without capture")
 if args.render_benchmark and (not args.gui or not args.auto or args.steps<=0):
@@ -52,8 +69,8 @@ if args.skill_test=='handoff' and args.boxes!=1:
     parser.error('--skill-test handoff requires --boxes 1')
 if args.handoff_target is not None and args.skill_test!='handoff':
     parser.error('--handoff-target is only available with --skill-test handoff')
-if args.source_box is not None and (args.skill_test not in (None,'grasp','retreat') or args.boxes!=1 or not args.auto):
-    parser.error('--source-box requires --auto --boxes 1, optionally with --skill-test grasp')
+if args.source_box is not None and (args.skill_test not in (None,'grasp','direct','retreat') or args.boxes!=1 or not args.auto):
+    parser.error('--source-box requires --auto --boxes 1, optionally with --skill-test grasp, direct or retreat')
 if args.skill_test=='retreat' and (args.source_box is None or args.boxes!=1):
     parser.error('--skill-test retreat requires --source-box and --boxes 1')
 assets = ROOT/'assets/generated/relay'
@@ -146,8 +163,11 @@ try:
     print('RELAY_RESET_INITIAL', flush=True)
     world.reset()
     print('RELAY_INITIALIZED', {name:robot.num_dof for name,robot in robots.items()}, flush=True)
+    initial_joints = dict(cfg['home'])
+    for mimic in meta['mimic_joints']:
+        initial_joints[mimic['name']] = initial_joints.get(mimic['reference'], 0.)
     for robot in robots.values():
-        positions = [cfg['home'].get(n,0.) for n in robot.dof_names]
+        positions = [initial_joints.get(n,0.) for n in robot.dof_names]
         robot.set_joints_default_state(positions=np.array(positions), velocities=np.zeros(robot.num_dof), efforts=np.zeros(robot.num_dof))
     world.reset()
     for robot in robots.values():
@@ -290,7 +310,7 @@ try:
     def set_gripper(robot_name, side, closed):
         if runtime is not None:
             return
-        controls[robot_name].set_joint(f'openarm_{side}_gripper_left_outer_knuckle_joint', .65 if closed else 0.)
+        controls[robot_name].gripper(side, opened=not closed)
 
     def reset():
         if runtime is not None:
@@ -339,7 +359,7 @@ try:
         global runtime
         from relay_runtime import RelayRuntime
         runtime_class=RelayRuntime
-        runtime_options={}
+        runtime_options={'settings_overrides':task_overrides} if args.task_profile else {}
         if args.navigation_demo:
             from navigation_runtime import NavigationRuntime
             runtime_class=NavigationRuntime
@@ -371,7 +391,7 @@ try:
                         completed=pusher.completed),
             goals=[p['id'] for p in runtime.nav_config['points']] if args.navigation_demo else [],
             robots={name:dict(lift=round(float(robot.get_joint_positions()[list(robot.dof_names).index('lift_joint')]),3),
-                targets={side:round(float(controls[name].targets[f'openarm_{side}_gripper_left_outer_knuckle_joint']),3)
+                targets={side:round(float(controls[name].targets[f'openarm_{side}_finger_joint1']),3)
                          for side in ('left','right')}) for name,robot in robots.items()})
 
     def execute_web_command(cmd):
@@ -443,7 +463,7 @@ try:
         panel = ui.Window('Pickup navigation | A*' if args.navigation_demo else 'Dual robot relay | Environment controls', width=440, height=720 if args.navigation_demo else 490)
         with panel.frame:
             with ui.VStack(spacing=8):
-                ui.Label(f'AG95 substitute / {len(crates)} hollow totes / {len(robots)} robots', height=24)
+                ui.Label(f'OpenArm pinch grippers / {len(crates)} hollow totes / {len(robots)} robots', height=24)
                 ui.Label('Autonomous commissioning / physical contacts' if runtime else 'Environment controls / automatic pusher', height=24, word_wrap=True)
                 pusher_label = ui.Label('Pusher: WAITING', height=24)
                 if runtime:
@@ -491,8 +511,8 @@ try:
         robot_console = RobotConsole(camera_streams.folder, camera_streams.session,
                                      operator_status, execute_web_command)
     step(360)
-    print(f'RELAY_ENVIRONMENT_READY: {len(robots)} robots, four AG95 grippers, {len(crates)} dynamic totes', flush=True)
-    if runtime is not None and (not args.gui or args.render_benchmark):
+    print(f'RELAY_ENVIRONMENT_READY: {len(robots)} robots, four original OpenArm grippers, {len(crates)} dynamic totes', flush=True)
+    if runtime is not None and (not args.gui or args.render_benchmark or args.start_immediately):
         if args.render_benchmark:
             resolution=render_metrics.viewport_resolution
             render_metrics=RenderMetrics(OUTPUTS,'physics-only' if args.physics_only else args.render_profile,c['physics']['dt'])
@@ -510,7 +530,7 @@ try:
         stack = c['source_stack']
         per_layer = stack['columns'] * stack['rows']
         checks['configured_dynamic_crates'] = len(crates)==per_layer*stack['layers'] and all(UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(s['path'])).GetRigidBodyEnabledAttr().Get() for s in initial['crates'])
-        checks['independent_robot_dof_sets'] = all(robot.num_dof == 102 for robot in robots.values())
+        checks['independent_robot_dof_sets'] = all(robot.num_dof == len(meta['actuated_joints']) + len(meta['mimic_joints']) + meta['passive_roller_joints'] for robot in robots.values())
         checks['real_stack_contacts'] = any('/SourcePalletDeck' in ' '.join(p) for p in contacts) and any(all('/Crates/' in x for x in p) for p in contacts)
         settled = [crate.get_world_pose()[0].copy() for crate in crates]
         checks['source_stack_settled'] = all(np.linalg.norm(p-np.array(s['position'])) < .015 and np.linalg.norm(crate.get_linear_velocity()) < .02 for p,s,crate in zip(settled,initial['crates'],crates))
@@ -534,14 +554,14 @@ try:
             q = robot.get_joint_positions()
             values = {n:float(q[robot.dof_names.index(n)]) for n in gripper_names}
             readings[name+'_independent_gripper_test'] = values
-            checks[name+'_independent_gripper_test'] = all(abs(v-(.65 if name=='Robot_A' and 'openarm_left_' in n else 0.))<.045 for n,v in values.items())
+            checks[name+'_independent_gripper_test'] = all(abs(v-(0. if name=='Robot_A' and 'openarm_left_' in n else (math.pi/4 if 'openarm_left_' in n else -math.pi/4)))<.045 for n,v in values.items())
         for name in robots:
             for side in ('left','right'):
                 set_gripper(name,side,True)
         step(220)
         for name,robot in robots.items():
             q = robot.get_joint_positions()
-            checks[name+'_all_grippers_close'] = all(abs(q[robot.dof_names.index(n)]-.65)<.045 for n in gripper_names)
+            checks[name+'_all_grippers_close'] = all(abs(q[robot.dof_names.index(n)])<.045 for n in gripper_names)
             checks[name+'_mimic_coupling'] = all(abs(q[robot.dof_names.index(m['name'])]-q[robot.dof_names.index(m['reference'])])<.045 for m in meta['mimic_joints'])
             readings[name+'_closed'] = {n:float(q[robot.dof_names.index(n)]) for n in gripper_names}
         for name in robots:
@@ -550,11 +570,12 @@ try:
         step(220)
         for name,robot in robots.items():
             q = robot.get_joint_positions()
-            checks[name+'_grippers_reopen'] = all(abs(q[robot.dof_names.index(n)])<.045 for n in gripper_names)
+            checks[name+'_grippers_reopen'] = all(abs(q[robot.dof_names.index(n)]-(math.pi/4 if 'openarm_left_' in n else -math.pi/4))<.045 for n in gripper_names)
             p,r = robot.get_world_pose()
             expected = next(s['position'] for s in c['robots'] if s['id']==name)
             checks[name+'_base_stable'] = bool(np.linalg.norm(p[:2]-np.array(expected[:2]))<.03 and abs(r[1])+abs(r[2])<.03)
         checks['stack_undisturbed'] = all(np.linalg.norm(crate.get_world_pose()[0]-p)<.008 for crate,p in zip(crates,settled))
+        print('RELAY_PRE_RESET_READINGS', json.dumps(readings), flush=True)
         print('RELAY_PRE_RESET_CHECKS', json.dumps({k:bool(v) for k,v in checks.items()}), flush=True)
         reset()
         step(240)
@@ -625,7 +646,7 @@ try:
             stack_center = [*c['pallet']['source'], c['pallet']['size'][2]+stack_height/2] if (stack_height := c['source_stack']['layers']*c['crate']['size'][2]) else [*c['pallet']['source'], .4]
             capture('relay_totes.png',(-3.7,-1.25,1.85),stack_center,45)
             # Locate the actual wrist from the live USD transforms for a useful close-up.
-            frame = stage.GetPrimAtPath('/World/Robots/Robot_A'+meta['frames']['openarm_left_gripper_ag95_base_link'])
+            frame = stage.GetPrimAtPath('/World/Robots/Robot_A'+meta['frames']['openarm_left_ee_base_link'])
             p = np.array(UsdGeom.Xformable(frame).ComputeLocalToWorldTransform(0).ExtractTranslation())
             print('RELAY_GRIPPER_CAMERA_TARGET', p.tolist(), flush=True)
             capture('relay_gripper.png',(p+np.array([.5,-.5,.3])).tolist(),p.tolist(),55,(1000,800))
@@ -638,7 +659,7 @@ try:
         omni.timeline.get_timeline_interface().play()
     if args.test:
         report = dict(passed=all(checks.values()), checks={k:bool(v) for k,v in checks.items()}, readings=readings,
-            scene='assets/generated/relay/main.usda',gripper='DH AG95 substitute',
+            scene='assets/generated/relay/main.usda',gripper='OpenArm original pinch grippers',
             physics_steps=steps, autonomous_relay_implemented=True,
             autonomous_relay_validated=False,
             handoff_pusher_implemented=True, note='Environment and physical pusher acceptance only; this test does not validate autonomous grasp or full relay.')
@@ -651,7 +672,7 @@ try:
         while app.is_running() and (args.steps==0 or count<args.steps):
             step()
             count+=1
-            if runtime is not None and runtime.finished and not args.gui and not args.physics_only:
+            if runtime is not None and runtime.finished and not args.gui and (not args.physics_only or args.exit_on_finish):
                 if args.capture and runtime.physics_valid:
                     capture('relay_demo_final.png',c['camera']['position'],c['camera']['target'],38)
                     active=next((e['robot'] for e in reversed(runtime.events)

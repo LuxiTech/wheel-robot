@@ -1,0 +1,19 @@
+FROM ros:humble-ros-base-jammy@sha256:afb40d6be65331c20a114d4e229a7ef099fed1b17bf6370daee193514b32aa16
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-numpy python3-scipy python3-opencv python3-yaml python3-pip \
+    python3-pytest ros-humble-robot-state-publisher \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m pip install --no-cache-dir trimesh==4.4.9 gdown==5.2.0 huggingface-hub==0.24.7 \
+    && dpkg-query -W > /opt/sdk-system-packages.txt \
+    && python3 -m pip freeze > /opt/sdk-python-packages.txt
+WORKDIR /opt/wheel_ws
+COPY third_party/lift_robot_ros2/Project/robot_interfaces src/luxi_interfaces
+COPY ros2_ws/src src/
+RUN source /opt/ros/humble/setup.bash && colcon build --merge-install \
+    && rm -rf build log
+COPY tools/grasp/container-entrypoint.sh /usr/local/bin/wheel-entrypoint
+ENV PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /workspace
+ENTRYPOINT ["/usr/local/bin/wheel-entrypoint"]
+CMD ["wheel-grasp", "doctor"]

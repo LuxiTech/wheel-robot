@@ -29,7 +29,7 @@ class WholeBodyResult:
 
 
 class WholeBodyIK:
-    def __init__(self, urdf, tcp=(0, 0, -.202), *, backend='cpu', device='cuda:0'):
+    def __init__(self, urdf, tcp=None, *, backend='cpu', device='cuda:0'):
         self.arms = {s: ArmIK(urdf, s, tcp=tcp) for s in ('left', 'right')}
         self.names = ['lift_joint'] + [n for arm in self.arms.values() for n in arm.names]
         self.lower = np.r_[0., self.arms['left'].lower, self.arms['right'].lower]
