@@ -73,6 +73,28 @@ docker compose pull isaac-sim
 ./scripts/simctl doctor
 ```
 
+### GPU 分工与单卡复现
+
+当前默认分工如下（宿主机 GPU 编号以 `nvidia-smi` 为准）：
+
+| 工作负载 | 配置入口 | 默认宿主 GPU |
+|---|---|---|
+| Isaac 物理仿真、相机渲染、接力任务 CUDA IK | `.env` 的 `GPU_ID` → `compose.yaml` | 1 |
+| NanoOWL、NanoSAM、FoundationPose 模型推理及 TensorRT 引擎构建 | `.env` 的 `PERCEPTION_GPU_ID` → `compose.grasp.yaml` | 0 |
+
+接力 IK 在 `config/relay_demo_config.json` 中使用 `ik_backend=cuda`、`ik_device=cuda:0`，由仿真进程内的 `WholeBodyIK` 调用 Warp CUDA 求解。这里的 `cuda:0` 是**容器内可见设备编号**：仿真容器仅挂载宿主 GPU 1，因此它对应宿主 GPU 1，不能据此判断 IK 在宿主 GPU 0 上运行。这个分工描述针对接力任务，不将单箱测试入口的规划实现混为同一套 IK。
+
+单 GPU 机器在 `.env` 中同时设置 `GPU_ID=0` 和 `PERCEPTION_GPU_ID=0`，保留 IK 的 `cuda:0`。两个容器会共享同一张卡，不需要第二张卡才能配置启动，但尚未完成单卡完整接力验收。若 shell 中导出了同名变量，会优先于 `.env` 生效，应一并核对。可检查 Compose 最终解析结果：
+
+```bash
+nvidia-smi --query-gpu=index,name,memory.total --format=csv
+docker compose -p wheel-robot-grasp -f compose.grasp.yaml --profile sim config
+```
+
+检查 `sim` 与 `perception` 的 `deploy.resources.reservations.devices.device_ids`；单卡应均为 `0`。修改配置后需重新启动任务，已有容器不会自动切换 GPU。
+
+`environment run` 按采集 → 感知/规划 → 仿真执行串行启动并退出阶段容器；`environment relay` 则先启动常驻模型进程，再启动仿真进程，两者同时占用显存。推理时暂停物理推进不等于释放 Isaac 的显存，因此不能通过“暂停仿真”解决显存不足。先通过 `check`、`engines`、`smoke`，再尝试单箱接力并观察显存和日志；单独推理通过不代表同卡接力能够运行。更换显卡后按下文重新构建引擎，当前没有经验证的单卡最低显存指标。
+
 `doctor` 应能在容器中列出所选 GPU；它不校验机器人资产或模型权重。`init` 会下载 Blender 并构建场景工具镜像，不能只复制 `.env` 就跳过初始化。
 
 默认仿真容器不联网，缓存保存在项目 `.runtime/`，不会随代码提交。GUI 会额外挂载当前桌面的显示认证信息。网页服务仅监听本机。

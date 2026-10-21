@@ -6,7 +6,7 @@
 
 | Compose 服务 | 内容 | 网络与设备 |
 | --- | --- | --- |
-| `sim` | 复用现有 Isaac Sim 镜像、URDF、场景和控制器 | 默认断网，GPU 默认 1，需显式启用 `sim` profile |
+| `sim` | 复用现有 Isaac Sim 镜像、URDF、场景和控制器 | 默认断网，宿主 GPU 默认 1，包含接力 CUDA IK；需显式启用 `sim` profile |
 | `perception` | NanoOWL、NanoSAM、FoundationPose、抓取核心 | 运行时断网，GPU 默认 0；不挂载串口、CAN 或 USB |
 | `sdk_bridge` | ROS 2 Humble、固定 SDK 的 `luxi_interfaces`、项目 ROS 包与 HTTP 接收工具 | 普通容器网络可访问 SDK HTTP；默认仅执行 doctor |
 | `download` | 复用桥接镜像的临时下载工具 | 仅 `tools` profile 启用，有网络，可写模型目录 |
@@ -164,7 +164,7 @@ tools/grasp/environment smoke
 
 下载工具验证 `models.lock.json` 中的 SHA-256，并准备固定 revision 的离线 Hugging Face 缓存。NanoSAM 原 Google Drive 链接本次不可下载，替代来源及引用依据在锁文件中记录，不把社区镜像误写成原始官方发布。FoundationPose 的模型文件来自其 README 指向的 Google Drive；OWL-ViT 来自 Google 的 Hugging Face 模型仓库。
 
-`.env` 中可以设置 `LOCAL_UID`、`LOCAL_GID`、`GPU_ID`、`PERCEPTION_GPU_ID`。只有一张 GPU 时将两个 GPU ID 都设为 0，并根据显存情况顺序启动仿真与推理。
+`.env` 中可以设置 `LOCAL_UID`、`LOCAL_GID`、`GPU_ID`、`PERCEPTION_GPU_ID`。只有一张 GPU 时将两个 GPU ID 都设为 0，接力配置中的 `ik_device=cuda:0` 保持不变；该编号是容器内设备编号。`run` 的阶段容器按顺序退出，但 `relay` 的模型进程与仿真进程同时驻留，需要容纳两者的显存；暂停物理仿真不会释放显存。单卡完整接力尚未验收，不能把单独模型 smoke 通过当作同卡接力通过。详见[GPU 分工与单卡复现](../../README.md#gpu-分工与单卡复现)。
 
 ## 4. 数据与感知调用
 
