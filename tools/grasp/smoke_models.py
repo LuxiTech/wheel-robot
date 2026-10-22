@@ -17,8 +17,8 @@ def timed(fn):
 
 
 def main():
-    from wheel_grasp.backends import NanoDetectorSegmenter, FoundationPoseBackend
-    from wheel_grasp.geometry import ModelInput
+    from wheel_grasp.vision.backends import NanoDetectorSegmenter, FoundationPoseBackend
+    from wheel_grasp.vision.geometry import ModelInput
     from Utils import nvdiffrast_render
     import trimesh
     import nvdiffrast.torch as dr

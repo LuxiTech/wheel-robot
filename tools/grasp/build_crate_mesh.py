@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 import trimesh
 p=argparse.ArgumentParser()
-p.add_argument('--colliders',default='assets/generated/relay/crate_colliders.json')
-p.add_argument('--output',default='assets/generated/grasp/crate.obj')
+p.add_argument('--colliders',default='assets/objects/crate/colliders.json')
+p.add_argument('--output',default='assets/objects/crate/model.obj')
 a=p.parse_args()
 parts=[]
 for item in json.loads(Path(a.colliders).read_text()):

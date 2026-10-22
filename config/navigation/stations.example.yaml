@@ -1,0 +1,13 @@
+# Reserved for measured map goals, AprilTag identities and docking transforms.
+# Null means unconfigured. These are not executable navigation targets.
+map_frame: map
+base_frame: base_footprint
+stations:
+  source_pallet:
+    map_pose: null
+    tag_id: null
+    tag_to_dock: null
+  target_pallet:
+    map_pose: null
+    tag_id: null
+    tag_to_dock: null

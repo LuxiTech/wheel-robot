@@ -19,8 +19,8 @@ rules:
   heading: 1.5707963267948966
   clearance: 0.06
 model:
-  mesh: assets/generated/grasp/crate.obj
-  colliders: assets/generated/relay/crate_colliders.json
+  mesh: assets/objects/crate/model.obj
+  colliders: assets/objects/crate/colliders.json
   foundationpose_repository: /opt/FoundationPose
   owl_engine: assets/models/engines/owl_image_encoder.engine
   sam_encoder: assets/models/engines/resnet18_image_encoder.engine

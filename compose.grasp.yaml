@@ -1,13 +1,5 @@
 name: wheel-robot-grasp
 services:
-  sim:
-    extends:
-      file: compose.yaml
-      service: isaac-sim
-    profiles: [sim]
-    volumes:
-      - ./ros2_ws/src/wheel_grasp_core:/workspace/grasp_core:ro
-      - ./tools:/workspace/tools:ro
   sdk_bridge:
     image: wheel-robot-sdk-bridge:ba0c732
     build:

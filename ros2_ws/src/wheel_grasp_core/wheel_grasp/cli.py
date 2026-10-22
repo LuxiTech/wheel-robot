@@ -5,11 +5,11 @@ import json
 from pathlib import Path
 import numpy as np
 import yaml
-from .rgbd import RGBDClient,save_observation,load_observation
-from .kinematics import RobotModel,PairIK
-from .pipeline import CAMERA_FRAMES,GraspPipeline
-from .geometry import prepare_input,mask_quality
-from .planning import plan_pair
+from wheel_grasp.vision.rgbd import RGBDClient,save_observation,load_observation
+from wheel_grasp.motion.kinematics import RobotModel,PairIK
+from wheel_grasp.vision.pipeline import CAMERA_FRAMES,GraspPipeline
+from wheel_grasp.vision.geometry import prepare_input,mask_quality
+from wheel_grasp.motion.planning import plan_pair
 
 
 def json_value(x):
@@ -63,7 +63,7 @@ def main():
         targets=json.loads(Path(args.targets).read_text())
         result=asdict(plan_pair(ik,targets,joints,fixed_lift=args.fixed_lift))
     else:
-        from .backends import NanoDetectorSegmenter,FoundationPoseBackend
+        from wheel_grasp.vision.backends import NanoDetectorSegmenter,FoundationPoseBackend
         m=cfg['model'];segmenter=NanoDetectorSegmenter(m['owl_engine'],m['sam_encoder'],m['sam_decoder'],m['prompt'])
         estimator=FoundationPoseBackend(m['foundationpose_repository'],m['mesh'],debug_dir='outputs/foundationpose')
         pipe=GraspPipeline(robot,segmenter,estimator,cfg['rules'],json.loads(Path(m['colliders']).read_text()),base=cfg['base_frame'])

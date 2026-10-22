@@ -1,6 +1,7 @@
-**
-!docker/
-!docker/Dockerfile.blender
-!.cache/
-!.cache/downloads/
-!.cache/downloads/blender-4.5.3-linux-x64.tar.xz
+.git
+.venv
+.runtime
+.cache
+outputs
+assets
+**/__pycache__

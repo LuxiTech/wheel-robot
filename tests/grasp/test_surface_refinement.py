@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 import numpy as np
 from scipy.spatial.transform import Rotation
-from wheel_grasp.pipeline import refine_surface_pose,surface_quality
+from wheel_grasp.vision.pipeline import refine_surface_pose,surface_quality
 
 
 def test_refinement_reduces_depth_model_error_without_task_prior():

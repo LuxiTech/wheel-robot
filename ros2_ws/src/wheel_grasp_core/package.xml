@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>wheel_grasp_core</name><version>0.1.0</version>
-  <description>RGB-D reception, URDF kinematics and dual-arm grasp planning.</description>
+  <name>wheel_grasp_core</name><version>0.2.0</version>
+  <description>Hardware task orchestration, navigation boundary, RGB-D keypoints and dual-arm planning.</description>
   <maintainer email="dev@luxitech.local">LuxiTech</maintainer><license>Proprietary</license>
   <buildtool_depend>ament_python</buildtool_depend>
   <exec_depend>rclpy</exec_depend><exec_depend>std_msgs</exec_depend>

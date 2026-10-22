@@ -1,0 +1,12 @@
+# One explicit box transfer. Stack ordering is a task policy, not a vision rule.
+job:
+  target_id: crate_001
+  source_station: source_pallet
+  destination_station: target_pallet
+  destination_slot: layer_0_row_0_column_0
+coordinator:
+  base_frame: base_footprint
+  max_observation_age: 1.0
+  step_timeout: 60.0
+  stop_timeout: 5.0
+output_directory: outputs/robot
