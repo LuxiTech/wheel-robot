@@ -1,3 +1,4 @@
+# Board SDK protocol reference only; no local SDK checkout is required.
 sdk_commit: ba0c7320cd1499995cfc614e83c0c3963343e15a
 base_url: http://192.168.0.245:18030
 camera: head_rgb

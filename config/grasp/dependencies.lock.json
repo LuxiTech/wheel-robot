@@ -1,8 +1,4 @@
 {
-  "sdk": {
-    "url": "https://gitee.com/fxx360724/lift_robot_ros2",
-    "commit": "ba0c7320cd1499995cfc614e83c0c3963343e15a"
-  },
   "nanoowl": {
     "url": "https://github.com/NVIDIA-AI-IOT/nanoowl",
     "commit": "fb553dee4c58f8c53ec2bf01f355a54648e67dbd"

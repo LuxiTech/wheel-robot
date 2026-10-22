@@ -47,7 +47,7 @@ git worktree add --detach ../wheel-robot-sim-reference 6726ba1
 
 ## 继续使用
 
-`third_party/lift_robot_ros2`、模型锁与源码锁、`tools/grasp` 模型下载/校验/引擎工具、`runlog.py`、两个 SDK/推理 Dockerfile、`compose.grasp.yaml`、ROS interfaces 和纯核心测试继续保留。
+模型锁与源码锁、`tools/grasp` 模型下载/校验/引擎工具、`runlog.py`、ROS 工具/推理 Dockerfile、`compose.grasp.yaml`、ROS interfaces 和纯核心测试继续保留。本地 SDK 子模块已删除，SDK 仅保留在开发板；`build-sdk` / `sdk_bridge` 已替换为 `build-ros` / `ros_tools`，下载与 HTTP 采集使用不含 SDK 的 ROS 工具镜像。运行配置中的 `sdk_commit` 仅记录板端协议参考版本，历史验证报告保持原样；SSH 执行链路仍待接入。
 
 `compose.grasp.yaml` 已移除仿真服务；`tools/grasp/environment run|relay` 会明确报入口已移除的提示。真正任务入口为 `tools/robot`，但硬件适配器尚未实现。
 

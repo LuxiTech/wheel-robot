@@ -9,11 +9,11 @@
 - `wheel-grasp-rgbd`：`wheel_grasp.vision.ros` 的 ROS RGB-D 录制节点。
 - `wheel-grasp-state`：`wheel_grasp.motion.ros_state` 的实测关节发布节点。
 
-使用 Ubuntu 22.04 / ROS 2 Humble 的 Python 环境构建，同时提供锁定 SDK 的 `luxi_interfaces`。仓库的 SDK Dockerfile 会将 SDK 消息及本工作区一起构建。不要 source 宿主 `.venv` 来替换 Humble 的 Python。
+使用 Ubuntu 22.04 / ROS 2 Humble 的 Python 环境构建。开发机的 `Dockerfile.ros-tools` 只构建本项目，不包含厂商 SDK。HTTP 采集与离线工具无需 `luxi_interfaces`；`wheel-grasp-state` 和 `wheel-grasp-rgbd` 是可选板端节点，运行前必须 source 开发板 SDK 提供的 `luxi_interfaces` 环境。不要 source 宿主 `.venv` 来替换 Humble 的 Python。
 
 ```bash
 source /opt/ros/humble/setup.bash
-# source 与 SDK 固定版本匹配的 luxi_interfaces overlay
+# 仅在板端运行 SDK ROS 节点时：source 板端 SDK 的 build/install/setup.bash
 cd ros2_ws
 colcon build --symlink-install
 source install/setup.bash

@@ -1,13 +1,48 @@
-# 感知与 SDK 隔离环境
+# 感知与 ROS 工具环境
 
-真机开发使用 SDK/ROS 与 GPU 推理两个独立镜像；轻量测试使用根目录 `.venv`。当前 Docker Compose 不再包含 Isaac 服务。
+开发机使用 ROS 工具与 GPU 推理两个独立镜像；厂商 SDK 仅在开发板运行；轻量测试使用根目录 `.venv`。当前 Docker Compose 不再包含 Isaac 服务。
+
+## 不依赖 Docker 的权重下载与校验
+
+模型文件下载仅需网络和 Python，不需要 GPU、ROS 或 Docker。所有命令在仓库根目录执行。使用独立虚拟环境安装 `gdown`，避免改变算法测试环境：
+
+```bash
+mkdir -p outputs/grasp .runtime
+uv venv --python /usr/bin/python3 .runtime/model-download-venv
+UV_CACHE_DIR="$PWD/.cache/uv" uv pip install \
+  --python .runtime/model-download-venv/bin/python gdown==5.2.0
+
+# 恢复固定提交的模型源码，不下载或构建厂商 SDK
+tools/grasp/environment sources
+
+PYTHONDONTWRITEBYTECODE=1 .runtime/model-download-venv/bin/python -u \
+  tools/grasp/download_models.py > outputs/grasp/model-download.log 2>&1
+PYTHONDONTWRITEBYTECODE=1 .runtime/model-download-venv/bin/python \
+  tools/grasp/download_models.py --verify-only > outputs/grasp/model-verify.log 2>&1
+```
+
+已有下载虚拟环境时跳过创建步骤。没有 uv 时，可用 `python3 -m venv .runtime/model-download-venv` 创建环境，再用该环境的 `python -m pip install gdown==5.2.0` 安装下载依赖。
+
+下载器按 `config/grasp/models.lock.json` 校验每个文件，已有正确文件会复用；中断文件保留为 `.partial`。若发现校验不匹配，程序报错并保留文件用于排查，不会跳过校验。最后生成固定 revision 的 Hugging Face 离线缓存。
+
+| 内容 | 仓库根目录下的相对路径 |
+|---|---|
+| NanoSAM 编码器/解码器 | `assets/models/nanosam/resnet18_image_encoder.onnx`、`mobile_sam_mask_decoder.onnx` |
+| FoundationPose 两组权重 | `assets/models/FoundationPose/2023-10-28-18-33-37/model_best.pth`、`assets/models/FoundationPose/2024-01-11-20-02-45/model_best.pth`；各有对应 `config.yml` |
+| OWL-ViT | `assets/models/owlvit-base-patch32/model.safetensors` 及配套配置/分词文件 |
+| 离线 Hugging Face 缓存 | `assets/models/huggingface/hub/models--google--owlvit-base-patch32/` |
+| 本机生成的 TensorRT 引擎 | `assets/models/engines/`；下载器不会生成引擎 |
+
+2026-10-22 本机已下载并校验全部 14 个锁定文件及离线缓存，合计约 1.5 GiB。此次校验不需要加载 PyTorch 模型，也未运行推理。新机器克隆仓库后需要重新下载或复制这些资源，然后执行 `--verify-only`。
+
+## 容器构建与推理验证（本机尚未完成）
 
 先准备 Docker Engine、Compose v2 和 NVIDIA Container Toolkit。若还没有 `.env`，从 `.env.example` 复制并填写当前 UID/GID 和 `PERCEPTION_GPU_ID`；单卡为 `0`。已有 `.env` 保留，原 Isaac 变量不再被当前 Compose 使用。
 
 ```bash
 mkdir -p outputs/grasp assets/models/engines .runtime/grasp .cache/grasp-wheels
 tools/grasp/environment sources
-tools/grasp/environment build-sdk
+tools/grasp/environment build-ros
 tools/grasp/environment download
 tools/grasp/environment verify-models
 tools/grasp/environment build-perception
@@ -16,7 +51,9 @@ tools/grasp/environment engines
 tools/grasp/environment smoke
 ```
 
-按顺序检查成功后继续。源码、环境和权重分别由 `config/grasp/*lock.json` 固定；既有模型环境验证基线见 `validated-environment.json`，不表示任意显卡都已通过。更换 GPU/运行库后须重新校验并构建 TensorRT 引擎，已有不匹配文件需先归档。
+按顺序检查成功后继续。源码、环境和权重分别由 `config/grasp/*lock.json` 固定；既有模型环境验证基线见 `validated-environment.json`（历史 SDK 镜像记录不代表当前 ROS 工具镜像已经验证），不表示任意显卡都已通过。更换 GPU/运行库后须重新校验并构建 TensorRT 引擎，已有不匹配文件需先归档。
+
+已通过独立下载路径准备好的文件会被容器中的下载器复用。当前开发机为 RTX 5090 Laptop GPU，历史推理基线不能替代这台机器上的兼容性测试；应以 `check`、`engines`、`smoke` 的实际结果确认能否运行。
 
 `check` 和 `smoke` 需要真正的 GPU 推理环境，普通 `.venv` 中的逻辑测试不能替代它们。本次目录迁移后镜像需重新构建，以包含 `wheel_grasp.vision` 等子包。
 
@@ -24,10 +61,10 @@ tools/grasp/environment smoke
 
 ```bash
 tools/grasp/grasp doctor
-docker compose -p wheel-robot-grasp -f compose.grasp.yaml run --rm sdk_bridge \
+docker compose -p wheel-robot-grasp -f compose.grasp.yaml run --rm ros_tools \
   wheel-grasp --config config/grasp/runtime.container.yaml doctor
 ```
 
-SDK 容器默认 `ROS_LOCALHOST_ONLY=1`，尚未实现跨机器 DDS 部署。传感器源与执行器接入需配置实际网络和时钟语义；不能把“镜像能构建”当成“机器人能执行”。
+ROS 工具容器不含厂商 SDK，支持模型下载、HTTP 只读采集和离线工具，默认 `ROS_LOCALHOST_ONLY=1`。`wheel-grasp-state` 和 `wheel-grasp-rgbd` 需要开发板 SDK 提供的 `luxi_interfaces`，应在板端 source SDK 环境后运行。计划通过 SSH 管理板端调用程序，执行链路尚未实现。
 
 `environment run` 和 `relay` 原先启动仿真，现已移除。统一任务入口见根目录 `tools/robot`。如需查阅原仿真代码和说明，可在 Git 提交 `6726ba1` 中查看；恢复方式见 `docs/MIGRATION.md`。

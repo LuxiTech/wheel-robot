@@ -16,10 +16,8 @@ def main():
     for name, item in lock.items():
         if not isinstance(item, dict) or 'commit' not in item:
             continue
-        directory = ROOT/'third_party'/('lift_robot_ros2' if name == 'sdk' else name)
-        if name == 'sdk':
-            git('submodule', 'update', '--init', '--', 'third_party/lift_robot_ros2')
-        elif not directory.exists():
+        directory = ROOT/'third_party'/name
+        if not directory.exists():
             git('clone', item['url'], str(directory))
         if git('status', '--porcelain', '--untracked-files=no', cwd=directory):
             raise RuntimeError(f'Modified tracked source cannot be reproduced: {directory}')

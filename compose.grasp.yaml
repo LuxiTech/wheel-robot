@@ -1,10 +1,10 @@
 name: wheel-robot-grasp
 services:
-  sdk_bridge:
-    image: wheel-robot-sdk-bridge:ba0c732
+  ros_tools:
+    image: wheel-robot-ros-tools:local
     build:
       context: .
-      dockerfile: docker/Dockerfile.sdk-bridge
+      dockerfile: docker/Dockerfile.ros-tools
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     init: true
     cap_drop: [ALL]
@@ -59,7 +59,7 @@ services:
       - ./.runtime/grasp:/workspace/.runtime/grasp:rw
     command: [tools/grasp/check_environment.py]
   download:
-    extends: sdk_bridge
+    extends: ros_tools
     profiles: [tools]
     volumes:
       - ./assets/models:/workspace/assets/models:rw
