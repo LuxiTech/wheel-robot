@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import platform
 import subprocess
+import sys
 import tensorrt as trt
 import torch
 
@@ -69,7 +70,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--model', choices=['sam', 'owl', 'all'], default='all')
     args = p.parse_args()
-    subprocess.run(['python', 'tools/grasp/download_models.py', '--verify-only'], check=True)
+    subprocess.run([sys.executable, 'tools/grasp/download_models.py', '--verify-only'], check=True)
     DEST.mkdir(parents=True, exist_ok=True)
     if args.model in ('sam', 'all'):
         build(ROOT/'assets/models/nanosam/resnet18_image_encoder.onnx', DEST/'resnet18_image_encoder.engine', fp16=True)

@@ -48,12 +48,19 @@ def test_known_visible_surface_pipeline(tmp_path):
     class Estimator:
         def register(self,*args):return t
     rule=dict(width=.4,height=.22,inset=.007,below_top=.006)
+    from test_live_trace import Trace
+    trace=Trace(tmp_path)
     p=GraspPipeline(RobotModel(urdf),Segmenter(),Estimator(),rule,
-                    [dict(position=[0,0,0],size=[.4,.3,.02])])
+                    [dict(position=[0,0,0],size=[.4,.3,.02])],trace=trace)
     out=p.process(obs,{},target_id='fixture_box')
     assert out['quality']['surface_rms_m']<1e-6
     assert out['pose'][0,3]==pytest.approx(.1)
     assert not out['executable'] and out['diagnostic_only']
+    assert (tmp_path/'06_pose_unvalidated.png').is_file()
+    assert (tmp_path/'07_grasp_tcp.png').is_file()
+    stages=[json.loads(line) for line in (tmp_path/'vision.events.jsonl').read_text().splitlines()]
+    assert [e['stage'] for e in stages if e['status']=='completed']==[
+        'preprocess','detection','segmentation','pose','pose_quality','transform','keypoints']
     with pytest.raises(ValueError,match='Duplicate'):p.process(obs,{},target_id='fixture_box')
 
 

@@ -2,7 +2,7 @@
 
 项目按 **导航 → 视觉关键点生成 → 运动控制** 三个模块组织，通过任务状态机协调。当前保留了 RGB-D 接收、检测/分割、箱体位姿、抓取规则、URDF 运动学、联合 IK、轨迹规划和 SDK 状态映射；导航与真机执行器尚待接入。
 
-**目前可以运行只读诊断、离线感知/规划和逻辑测试，不能直接执行真机拆码垛。** 厂商 SDK 仅保留在开发板上，本项目不再下载或构建 SDK。计划通过 SSH 在板端启动调用程序；SSH 执行链路尚未接通。
+**目前可以运行只读诊断、离线感知/规划和逻辑测试，不能直接执行真机拆码垛。** 厂商 SDK 仅保留在开发板上，本项目不再下载或构建 SDK。头部 RGB-D 只读采集已通过 SSH 隧道接通；运动控制的 SDK 执行适配尚未实现。
 
 ## 目录
 
@@ -38,7 +38,7 @@ wheel-robot/
 
 ## 环境隔离与本地验证
 
-轻量算法和任务测试使用项目虚拟环境；ROS 工具使用独立容器，GPU 模型推理使用另一独立容器。宿主无需安装 ROS、PyTorch 或 CUDA Toolkit。ROS Humble 使用其容器里的 Python，不能复用宿主 Python 3.14 的虚拟环境。
+轻量算法和任务测试使用项目虚拟环境；ROS 工具与历史 GPU 推理方案使用独立容器。新增 RTX 5090 原生诊断方案使用 `.runtime/vision/venv`，GPU 依赖与 `.venv` 分离，CUDA 编译工具链只读复用已有安装；不向系统 Python 安装依赖。ROS Humble 使用其容器里的 Python，不能复用宿主 Python 3.14 的虚拟环境。
 
 ```bash
 python3 -m venv .venv
@@ -59,26 +59,26 @@ tools/robot run
 
 测试使用明确的替身验证模块协调，不代表硬件或模型推理通过。外部 URDF、录制数据缺失时对应测试会跳过。
 
-## 本机复现进度（2026-10-22）
+## 本机复现进度（2026-10-23）
 
 以下为本次开发机的实测状态，不是完整真机系统验收，也不代表其他机器克隆后已具备这些本地文件。
 
 | 项目 | 当前状态 |
 |---|---|
 | 主机 | Ubuntu 26.04.1 LTS，Python 3.14.4；RTX 5090 Laptop GPU，显存 24463 MiB，驱动 595.91.07 |
-| 轻量环境 | `.venv` 已安装测试/几何依赖，项目包已安装；未在宿主安装 ROS/PyTorch/CUDA Toolkit |
+| 轻量环境 | `.venv` 已安装测试/几何依赖，项目包已安装；未向系统 Python 安装 ROS/PyTorch |
 | 模型源码 | NanoOWL、NanoSAM、FoundationPose、torch2trt 已下载，提交均与 `dependencies.lock.json` 一致 |
 | 模型权重 | NanoSAM 两个 ONNX、FoundationPose 两组权重及配置、OWL-ViT 权重及配套文件已下载；14 个锁定文件 SHA-256 全部通过 |
 | 离线缓存 | OWL-ViT Hugging Face 固定 revision 缓存已生成并通过校验；权重及缓存合计约 1.5 GiB |
-| 逻辑回归 | 当前工作区复测 **54 passed、4 skipped**；3 项缺机器人 URDF，1 项缺真机 RGB-D 回放数据 |
+| 逻辑回归 | 当前工作区复测 **56 passed、4 skipped**；3 项缺机器人 URDF，1 项固定历史回放文件缺失（新采集数据另存于 live 目录） |
 | 应用入口 | `status`、`workflow` 可运行；`run` 在适配器未配置时返回 `NOT_READY`，不是执行成功 |
-| 容器及模型推理 | 本机尚无可用 Docker；当前 ROS 工具/推理镜像未构建，TensorRT 引擎未生成，GPU 模型冒烟测试未运行 |
-| 外部资产及标定 | 机器人 URDF/网格、实物箱模型、TCP 验证及升降映射尚未准备齐 |
-| 真机执行 | Nav2/AprilTag、同步观测源、SSH 板端调用及自主执行闭环待接入，未完成真机抓取验证 |
+| 原生模型推理 | `.runtime/vision/venv`：Python 3.11、PyTorch 2.7.1/cu128、TensorRT 10.8；三个本机引擎已构建，真机图像检测、分割和 CAD 位姿/抓取点投影已运行，FoundationPose 合成数据注册/跟踪通过；容器方案仍未构建 |
+| 外部资产及标定 | 箱体 STEP 已导入并转为米制 OBJ（445×310×180 mm）；相机预览已处理开口朝向并输出候选点；真实 URDF、TCP、相机外参及夹取参数仍待验证 |
+| 真机执行 | 头部只读 RGB-D 经 SSH 网关可采集；Nav2/AprilTag、任务同步观测源及自主执行闭环待接入，未完成真机抓取验证 |
 
-权重位于 `assets/models/{nanosam,FoundationPose,owlvit-base-patch32}/`，离线缓存位于 `assets/models/huggingface/`，引擎输出目录为 `assets/models/engines/`（当前为空）。这些资源、`.venv`、`.runtime`、缓存和日志均被 Git 忽略，**推送代码不会上传模型文件**。
+权重位于 `assets/models/{nanosam,FoundationPose,owlvit-base-patch32}/`，离线缓存位于 `assets/models/huggingface/`，引擎输出目录为 `assets/models/engines/`（已生成三个本机 GPU 引擎）。这些资源、`.venv`、`.runtime`、缓存和日志均被 Git 忽略，**推送代码不会上传模型文件**。
 
-本次下载实际使用独立 `.runtime/model-download-venv`，无需先安装 Docker；命令见[独立下载与校验](tools/grasp/README.md#不依赖-docker-的权重下载与校验)。下载完成不表示当前显卡已通过 PyTorch/TensorRT 兼容性或真实模型精度验证。
+本次下载实际使用独立 `.runtime/model-download-venv`，无需先安装 Docker；命令见[独立下载与校验](tools/grasp/README.md#不依赖-docker-的权重下载与校验)。原生推理验证与限制见 [真机视觉诊断](docs/LIVE_VISION.md)，模型下载或单帧推理成功均不代表真实抓取精度验收。
 
 本地证据：`outputs/grasp/model-download.log`、`outputs/grasp/model-verify.log`、`outputs/reproduction/current-readme-tests.log`。这些日志不随仓库分发；其他机器应按文档重新执行校验。
 
@@ -110,6 +110,10 @@ assets/objects/crate/colliders.json
 `model.obj` 和碰撞几何应对应实物箱；已有数据不会自动搬移或替换。如果提供了实测长方体组合定义，可运行 `tools/grasp/build_crate_mesh.py` 生成网格。该工具保留，但不再依赖 `build-relay` 生成资产。
 
 模型镜像、权重和引擎准备见 [环境说明](tools/grasp/README.md)。板端 SDK/ROS 接口及构建见 [核心包说明](ros2_ws/src/wheel_grasp_core/README.md)。
+
+## 真机视觉诊断
+
+新增独立只读入口 `tools/grasp/perceive_live.py`：通过 SSH 隧道读取头部 RGB-D，按运行目录保存取图、检测、分割、位姿、坐标变换、抓取点的日志和可视化。失败保留原始响应及已完成阶段的图片。操作步骤、资源要求和帧龄说明见 [真机视觉诊断](docs/LIVE_VISION.md)。该入口不启动运动控制，实物几何及外参未验证时停止后续处理。另提供 `tools/grasp/preview_camera_grasps.py`，使用用户 CAD 在相机坐标下估计位姿并绘制箱沿候选点；它不依赖整机 URDF，结果仅用于视觉检查，不作为机械臂执行目标。
 
 ## 后续接入
 

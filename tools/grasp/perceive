@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+cd "$ROOT"
+export HF_HOME="$ROOT/assets/models/huggingface"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export PYTHONDONTWRITEBYTECODE=1
+exec "$ROOT/.runtime/vision/venv/bin/python" -u "$ROOT/tools/grasp/perceive_live.py" "$@"

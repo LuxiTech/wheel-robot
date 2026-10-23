@@ -1,0 +1,16 @@
+{
+  "source": "assets/objects/crate/source/box.step",
+  "mesh": "assets/objects/crate/model.obj",
+  "metadata": "assets/objects/crate/model.cad.json",
+  "source_sha256": "639ebdefa759cedae89e8b42ad41c486f50fb54d7f162080d4ffe4e569e47072",
+  "dimensions_mm": [
+    445,
+    310,
+    180
+  ],
+  "source_opening_direction": "-Z",
+  "pipeline_expected_opening_direction": "+Z",
+  "mesh_axes_preserved": true,
+  "grasp_rules_validated": false,
+  "notes": "CAD supplied by user; align opening direction and derive rim rules before real grasp points. Source model has two solids. CAD dimensions are not an independent measurement of the physical object."
+}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Restore locked sources without replacing locally modified checkouts."""
 import json
+import argparse
 from pathlib import Path
 import subprocess
 
@@ -12,7 +13,10 @@ def git(*args, cwd=ROOT):
 
 
 def main():
-    lock = json.loads((ROOT/'config/grasp/dependencies.lock.json').read_text())
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--lock',default='config/grasp/dependencies.lock.json')
+    args=parser.parse_args()
+    lock = json.loads((ROOT/args.lock).read_text())
     for name, item in lock.items():
         if not isinstance(item, dict) or 'commit' not in item:
             continue

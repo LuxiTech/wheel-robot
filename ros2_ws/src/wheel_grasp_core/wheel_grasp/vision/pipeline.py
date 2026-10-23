@@ -1,5 +1,6 @@
 """Observation -> selected instance -> pose -> URDF transform -> pair targets."""
 import time
+from contextlib import nullcontext
 import numpy as np
 from scipy.spatial.transform import Rotation
 from wheel_grasp.vision.geometry import prepare_input, mask_quality, rim_targets
@@ -34,44 +35,65 @@ def surface_quality(model_input,mask,camera_pose,colliders,*,max_rms=.006):
 
 
 class GraspPipeline:
-    def __init__(self,robot,segmenter,estimator,rules,colliders,*,base='base_footprint'):
+    def __init__(self,robot,segmenter,estimator,rules,colliders,*,base='base_footprint',trace=None):
+        self.trace=trace
         self.robot=robot;self.segmenter=segmenter;self.estimator=estimator
         self.rules=rules;self.colliders=colliders;self.base=base
         self.last=None;self.last_key=None;self.target=None;self.last_time=None
 
+    def stage(self, name):
+        return self.trace.stage(name) if self.trace else nullcontext()
+
+    def emit(self, name, **data):
+        if self.trace: self.trace.record(name, **data)
+
     def process(self,observation,joints,*,target_id,box=None,track=False):
-        if observation.key==self.last_key: raise ValueError('Duplicate pair')
-        inp=prepare_input(observation)
-        if not target_id: raise ValueError('Explicit target identity required')
-        if box is None:
-            candidates=self.segmenter.detect(inp.rgb)
-            if len(candidates)!=1:
-                raise ValueError('Select an explicit box when detection is empty or ambiguous; candidates='+str(len(candidates)))
-            box=candidates[0]['box']
-        box=np.asarray(box,float)
-        h,w=inp.depth.shape
-        if (box.shape!=(4,) or not np.isfinite(box).all() or
-                not (0<=box[0]<box[2]<=w and 0<=box[1]<box[3]<=h)):
-            raise ValueError('Invalid target bounding box')
-        mask=self.segmenter.segment(inp.rgb,box)
-        quality=mask_quality(mask,inp.depth)
-        if not quality['accepted']:
-            self.target=None;raise ValueError('Target depth quality rejected: '+str(quality))
+        with self.stage('preprocess'):
+            if observation.key==self.last_key: raise ValueError('Duplicate pair')
+            inp=prepare_input(observation)
+            if not target_id: raise ValueError('Explicit target identity required')
+            self.emit('preprocess', inp=inp)
+        with self.stage('detection'):
+            candidates=self.segmenter.detect(inp.rgb) if box is None else []
+            self.emit('detection', inp=inp, candidates=candidates, box=box)
+            if box is None:
+                if len(candidates)!=1:
+                    raise ValueError('Select an explicit box when detection is empty or ambiguous; candidates='+str(len(candidates)))
+                box=candidates[0]['box']
+            box=np.asarray(box,float)
+            h,w=inp.depth.shape
+            if (box.shape!=(4,) or not np.isfinite(box).all() or
+                    not (0<=box[0]<box[2]<=w and 0<=box[1]<box[3]<=h)):
+                raise ValueError('Invalid target bounding box')
+        with self.stage('segmentation'):
+            mask=self.segmenter.segment(inp.rgb,box)
+            quality=mask_quality(mask,inp.depth)
+            self.emit('segmentation', inp=inp, mask=mask, quality=quality)
+            if not quality['accepted']:
+                self.target=None;raise ValueError('Target depth quality rejected: '+str(quality))
         identity=(observation.key[0],target_id)
         can_track=(track and identity==self.target and self.last is not None
                    and self.last_time is not None and time.monotonic()-self.last_time<.5)
         try:
-            t=pose(self.estimator.track(inp,identity) if can_track else self.estimator.register(inp,mask,identity))
-            check=surface_quality(inp,mask,t,self.colliders)
-            if not check['accepted']: raise ValueError('Estimated pose fails surface check: '+str(check))
-            if can_track and (np.linalg.norm(t[:3,3]-self.last[:3,3])>.05 or
-                    Rotation.from_matrix(t[:3,:3]@self.last[:3,:3].T).magnitude()>.25):
-                raise ValueError('Pose jump; re-register target')
+            with self.stage('pose'):
+                t=pose(self.estimator.track(inp,identity) if can_track else self.estimator.register(inp,mask,identity))
+                self.emit('pose', inp=inp, pose=t, colliders=self.colliders, frame_id=inp.frame)
+            with self.stage('pose_quality'):
+                check=surface_quality(inp,mask,t,self.colliders)
+                self.emit('pose_quality', quality=check)
+                if not check['accepted']: raise ValueError('Estimated pose fails surface check: '+str(check))
+                if can_track and (np.linalg.norm(t[:3,3]-self.last[:3,3])>.05 or
+                        Rotation.from_matrix(t[:3,:3]@self.last[:3,:3].T).magnitude()>.25):
+                    raise ValueError('Pose jump; re-register target')
         except Exception:
             self.target=None;self.last=None;raise
-        camera=self.robot.transform(CAMERA_FRAMES[observation.key[0]],joints,self.base)
-        box_base=camera@t
-        grasp,pre=rim_targets(box_base,**self.rules)
+        with self.stage('transform'):
+            camera=self.robot.transform(CAMERA_FRAMES[observation.key[0]],joints,self.base)
+            box_base=camera@t
+            self.emit('transform', camera=camera, frame_id=self.base)
+        with self.stage('keypoints'):
+            grasp,pre=rim_targets(box_base,**self.rules)
+            self.emit('keypoints', inp=inp, grasp=grasp, pregrasp=pre, camera=camera, frame_id=self.base)
         self.last=t;self.target=identity;self.last_key=observation.key;self.last_time=time.monotonic()
         return dict(target_id=target_id,pair_id=observation.key[1],camera_id=observation.key[0],
                     frame_id=self.base,pose=box_base,grasp=grasp,pregrasp=pre,
