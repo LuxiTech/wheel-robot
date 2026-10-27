@@ -9,7 +9,9 @@ from pathlib import Path
 import sys
 import uuid
 ROOT=Path(__file__).resolve().parents[2]
-sys.path.insert(0,str(ROOT/'ros2_ws/src/wheel_grasp_core'))
+sys.path.insert(0, str(ROOT/'tools'))
+from _bootstrap import configure
+configure(ROOT)
 from runlog import write_json
 from perceive_live import Trace,serial
 
@@ -37,10 +39,10 @@ def main():
     import numpy as np
     import torch
     import trimesh
-    from wheel_grasp.vision.rgbd import load_observation,save_observation
-    from wheel_grasp.vision.geometry import prepare_input,mask_quality,rim_targets
-    from wheel_grasp.vision.backends import NanoDetectorSegmenter,FoundationPoseBackend
-    from wheel_grasp.vision.visualization import draw_detections,project_points
+    from wheel_perception_core.rgbd import load_observation,save_observation
+    from wheel_perception_core.geometry import prepare_input,mask_quality,rim_targets
+    from wheel_perception_core.backends import NanoDetectorSegmenter,FoundationPoseBackend
+    from wheel_perception_core.visualization import draw_detections,project_points
     write_json(out/'status.json',dict(status='running',diagnostic_only=True,executable=False))
     try:
         with trace.stage('capture_replay'):

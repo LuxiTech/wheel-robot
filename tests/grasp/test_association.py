@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from wheel_grasp.vision.association import projected_box,associate
+from wheel_perception_core.association import projected_box,associate
 
 
 def test_task_roi_requires_visible_geometry():

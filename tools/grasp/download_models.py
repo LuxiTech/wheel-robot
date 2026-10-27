@@ -53,7 +53,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--verify-only', action='store_true')
     args = parser.parse_args()
-    manifest = json.loads((ROOT/'config/grasp/models.lock.json').read_text())
+    manifest = json.loads((ROOT/'config/deployments/models.lock.json').read_text())
     for item in manifest['files']:
         path = ROOT/item['path']
         if path.exists():

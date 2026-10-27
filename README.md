@@ -1,125 +1,143 @@
-# Wheel Robot：真机拆码垛开发
+# Wheel Robot
 
-项目按 **导航 → 视觉关键点生成 → 运动控制** 三个模块组织，通过任务状态机协调。当前保留了 RGB-D 接收、检测/分割、箱体位姿、抓取规则、URDF 运动学、联合 IK、轨迹规划和 SDK 状态映射；导航与真机执行器尚待接入。
+双臂轮式机器人的拆码垛工程，采用“核心算法库 → 运行适配 → 任务编排 → 网页管理”的分层架构。
+当前版本为 0.3.0。原单体 `wheel_grasp_core` 已拆分，旧 Python import 不再提供兼容副本。
 
-**目前可以运行只读诊断、离线感知/规划和逻辑测试，不能直接执行真机拆码垛。** 厂商 SDK 仅保留在开发板上，本项目不再下载或构建 SDK。头部 RGB-D 只读采集已通过 SSH 隧道接通；运动控制的 SDK 执行适配尚未实现。
+**当前支持只读诊断、离线感知/规划、任务逻辑测试及双 SDK 状态网页与可显式开启的 A/B 导航。导航已提供陆图 API 适配；完整抓取执行闭环尚未接入，不能直接执行自主拆码垛。**
 
-## 目录
+## 项目结构
 
 ```text
 wheel-robot/
+├── packages/                         # 不依赖 ROS 的 Python 核心库
+│   ├── wheel_task_core/              # 契约、状态机、配置与坐标值校验
+│   ├── wheel_perception_core/        # RGB-D、检测分割、位姿、抓取候选
+│   └── wheel_motion_core/            # FK、IK、碰撞、轨迹
 ├── ros2_ws/src/
-│   ├── wheel_grasp_core/
-│   │   ├── wheel_grasp/
-│   │   │   ├── main.py              # 初始化适配器、启动任务、保存结果
-│   │   │   ├── contracts.py         # 三个模块的数据及异步接口
-│   │   │   ├── task/                # 工序状态机、超时与取消
-│   │   │   ├── navigation/          # 预留：Nav2 + AprilTag 工位对接
-│   │   │   ├── vision/              # RGB-D → 箱体位姿 → 双手抓取目标
-│   │   │   ├── motion/              # FK/IK、碰撞、轨迹、SDK 映射与执行接口
-│   │   │   └── cli.py               # 只读采集、感知和离线规划命令
-│   │   └── launch/                 # 实测关节与 URDF TF
-│   └── wheel_grasp_interfaces/      # ROS 消息/action 契约
+│   ├── wheel_interfaces/             # ROS 消息与 action 定义
+│   ├── wheel_description/            # URDF/网格资源边界；真实资产待提供
+│   ├── wheel_sdk_bridge/             # SDK 反馈映射、实测关节/RGB-D ROS 接收
+│   ├── wheel_navigation/             # 陆图 unstacking 地图 A/B 导航
+│   ├── wheel_perception/             # 同步采集契约及视觉任务适配
+│   ├── wheel_planning/               # 离线规划服务封装
+│   ├── wheel_execution/              # 真机操作执行边界；待接入
+│   ├── wheel_runtime/                # 装配、CLI、任务结果记录
+│   ├── wheel_gateway/                # 对管理端提供只读查询
+│   └── wheel_bringup/                # ROS 启动与参数装配
+├── apps/
+│   ├── management_api/               # FastAPI 查询与显式导航控制
+│   └── management_web/               # 独立 HTML/CSS/JS 管理页面
 ├── config/
-│   ├── task.yaml                   # 单箱任务及阶段超时
-│   ├── navigation/                 # 地图工位、Tag 与对接位姿配置工作目录
-│   └── grasp/                      # 模型锁、板端协议参考、视觉/机器人参数
-├── tools/robot                     # 统一应用入口
-├── tools/grasp/                    # 模型下载、环境、诊断和离线工具
-├── docker/                         # ROS 工具和 GPU 推理独立镜像
-├── compose.grasp.yaml
-├── tests/grasp/                    # 纯逻辑、算法及任务接口测试
-├── docs/ARCHITECTURE.md             # 模块职责、执行流程、后续开发边界
-├── docs/MIGRATION.md                # 旧文件 → 新文件、保留和归档清单
-└── third_party/                    # 外部模型源码
+│   ├── robots/                      # 机器人/相机/TCP/推理引擎配置
+│   ├── stations/                    # 工位、Tag 与对接位姿
+│   ├── recipes/                     # 箱体模型、几何抓取规则与 CAD 登记
+│   └── deployments/                 # 任务参数、依赖锁与环境验证基线
+├── assets/                          # 外部资产及 CAD 原件
+├── deployment/                      # Dockerfile、Compose 与部署说明
+├── tools/                           # 统一入口、模型与诊断工具
+├── tests/                           # 算法、任务、边界与管理接口测试
+└── docs/                            # 架构、迁移、接口和验证说明
 ```
 
-保留 `wheel_grasp_core` ROS 包名和 `wheel_grasp` Python 包名，内部模块已经重新划分；不再维护一套平铺旧模块作为兼容副本。
+每个受维护的源代码/配置/部署目录均包含 `README.md`，说明本目录的文件、职责、依赖和实现状态。
+`.venv`、`.runtime`、缓存、历史输出和外部 `third_party` 不属于逐目录文档维护范围。
 
-## 环境隔离与本地验证
+## 分层约束
 
-轻量算法和任务测试使用项目虚拟环境；ROS 工具与历史 GPU 推理方案使用独立容器。新增 RTX 5090 原生诊断方案使用 `.runtime/vision/venv`，GPU 依赖与 `.venv` 分离，CUDA 编译工具链只读复用已有安装；不向系统 Python 安装依赖。ROS Humble 使用其容器里的 Python，不能复用宿主 Python 3.14 的虚拟环境。
+- `wheel_task_core` 定义业务契约并通过注入的 Navigation/Vision/Motion 接口执行工序，不导入 ROS、SDK、Web 或数据库。
+- 两个算法库只依赖核心值类型及各自数学/图像库；感知与运动算法之间没有相互 import。
+- ROS 工作包是独立安装边界，已有算法通过适配器调用；新目录不等于已实现对应 ROS action server。
+- `wheel_runtime` 是任务装配入口；网页、网关不启动任务控制循环，不直接发送设备指令。
+- 厂商 SDK 实机部署在开发板，本地只读副本位于 device/；本工程只调用公开 API，不导入、同步或修改两套 SDK 的源码。
+
+## 本地运行与回归
+
+在仓库根目录执行；已存在 `.venv` 时直接复用，不向系统 Python 安装依赖。
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r tools/grasp/requirements.txt
-# 统一入口通过项目源码路径运行，无需先构建 ROS
 tools/robot status
 tools/robot workflow
-.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest -q -rs
 ```
 
-已经存在 `.venv` 时直接复用。若使用 uv，可执行 `UV_CACHE_DIR="$PWD/.cache/uv" uv pip install --python .venv/bin/python -r tools/grasp/requirements.txt`。
+工具和测试自动发现 `packages/`、`ros2_ws/src/` 中的源码，无需先构建 ROS。
+三个核心库也可独立安装：
 
 ```bash
-tools/robot run
+.venv/bin/python -m pip install -e packages/wheel_task_core \
+  -e packages/wheel_perception_core -e packages/wheel_motion_core
 ```
 
-当前 `run` 会记录 `NOT_READY` 并以退出码 **2** 结束，因为导航、同步观测源和硬件执行器未配置；它不会自动启用仿真、发送运动指令或伪造成功。结果位于 `outputs/robot/<运行ID>/result.json`。`workflow` 只展示工序，不代表执行或仿真。
+本机现有 `.venv` 不含 pip，已复用原算法依赖并安装新工作包，无需重复初始化；若需更新安装，可使用管理环境的 pip：
+`.runtime/management/venv/bin/python -m pip --python .venv/bin/python install ...`。
+源码入口 `tools/robot`、`tools/grasp/grasp` 始终使用当前工作区；安装版 console script 使用已安装版本，修改代码后需要重新安装。
 
-测试使用明确的替身验证模块协调，不代表硬件或模型推理通过。外部 URDF、录制数据缺失时对应测试会跳过。
+`tools/robot run` 在默认适配器未接入时记录 `NOT_READY`，返回退出码 2，结果保存到 `outputs/robot/<运行ID>/result.json`。
+`workflow` 只描述工序；`status` 查询默认装配状态，不代表已连接机器人。缺少外部 URDF、历史采集文件的测试明确跳过。
 
-## 本机复现进度（2026-10-23）
+## 网页后台
 
-以下为本次开发机的实测状态，不是完整真机系统验收，也不代表其他机器克隆后已具备这些本地文件。
+提供双 SDK 连接、unstacking 地图 A/B 点位及导航状态，同时保留默认模块、单箱工序、配置目录和历史结果。默认仅观测；现场准备后使用 `tools/management --enable-navigation` 开启 A/B/停止控制。尚无账号权限、配置写入或完整拆码垛调度。
+前后端分别位于 `apps/management_api`、`apps/management_web`，后端通过 `wheel_gateway` 查询运行层。
 
-| 项目 | 当前状态 |
-|---|---|
-| 主机 | Ubuntu 26.04.1 LTS，Python 3.14.4；RTX 5090 Laptop GPU，显存 24463 MiB，驱动 595.91.07 |
-| 轻量环境 | `.venv` 已安装测试/几何依赖，项目包已安装；未向系统 Python 安装 ROS/PyTorch |
-| 模型源码 | NanoOWL、NanoSAM、FoundationPose、torch2trt 已下载，提交均与 `dependencies.lock.json` 一致 |
-| 模型权重 | NanoSAM 两个 ONNX、FoundationPose 两组权重及配置、OWL-ViT 权重及配套文件已下载；14 个锁定文件 SHA-256 全部通过 |
-| 离线缓存 | OWL-ViT Hugging Face 固定 revision 缓存已生成并通过校验；权重及缓存合计约 1.5 GiB |
-| 逻辑回归 | 当前工作区复测 **56 passed、4 skipped**；3 项缺机器人 URDF，1 项固定历史回放文件缺失（新采集数据另存于 live 目录） |
-| 应用入口 | `status`、`workflow` 可运行；`run` 在适配器未配置时返回 `NOT_READY`，不是执行成功 |
-| 原生模型推理 | `.runtime/vision/venv`：Python 3.11、PyTorch 2.7.1/cu128、TensorRT 10.8；三个本机引擎已构建，真机图像检测、分割和 CAD 位姿/抓取点投影已运行，FoundationPose 合成数据注册/跟踪通过；容器方案仍未构建 |
-| 外部资产及标定 | 箱体 STEP 已导入并转为米制 OBJ（445×310×180 mm）；相机预览已处理开口朝向并输出候选点；真实 URDF、TCP、相机外参及夹取参数仍待验证 |
-| 真机执行 | 头部只读 RGB-D 经 SSH 网关可采集；Nav2/AprilTag、任务同步观测源及自主执行闭环待接入，未完成真机抓取验证 |
+```bash
+python3 -m venv .runtime/management/venv
+.runtime/management/venv/bin/python -m pip install \
+  -r tools/grasp/requirements.txt -e apps/management_api
+tools/management
+```
 
-权重位于 `assets/models/{nanosam,FoundationPose,owlvit-base-patch32}/`，离线缓存位于 `assets/models/huggingface/`，引擎输出目录为 `assets/models/engines/`（已生成三个本机 GPU 引擎）。这些资源、`.venv`、`.runtime`、缓存和日志均被 Git 忽略，**推送代码不会上传模型文件**。
+浏览器访问 `http://127.0.0.1:8088`。默认只监听回环地址；部署账号权限、TLS 和写入控制后再作为共享管理服务使用。
+Windows 工作站可用 `ssh -N -L 8088:127.0.0.1:8088 luxi@192.168.1.47` 转发后访问。
+管理后台独立环境不会改变 `.runtime/vision/venv` 的 GPU 依赖。
 
-本次下载实际使用独立 `.runtime/model-download-venv`，无需先安装 Docker；命令见[独立下载与校验](tools/grasp/README.md#不依赖-docker-的权重下载与校验)。原生推理验证与限制见 [真机视觉诊断](docs/LIVE_VISION.md)，模型下载或单帧推理成功均不代表真实抓取精度验收。
+## 配置与真机视觉
 
-本地证据：`outputs/grasp/model-download.log`、`outputs/grasp/model-verify.log`、`outputs/reproduction/current-readme-tests.log`。这些日志不随仓库分发；其他机器应按文档重新执行校验。
-
-## 视觉及运动算法入口
-
-“视觉关键点”目前采用已有的检测/分割与位姿估计，再按箱沿几何生成左右手 **4×4 抓取位姿及预抓取位姿**；不是新增的关键点神经网络，也不只输出像素坐标。
+- 默认机器人配置：`config/robots/runtime.yaml`；本机 GPU 诊断：`config/robots/runtime.live.yaml`。
+- 机器人配置的 `recipe` 相对于当前 YAML 所在目录解析；箱体规则集中于 `config/recipes/crate.example.yaml`，机器人字段可覆盖配方字段。
+- 资产路径仍相对于仓库根目录，不随配方文件位置改变。
+- 依赖、模型权重和原生位姿源码锁位于 `config/deployments/*lock.json`。
+- 工位示例位于 `config/stations/stations.example.yaml`，未测量位置保留 `null`。
 
 ```bash
 tools/grasp/grasp doctor
-# 配置真实网关后，执行只读 GET 采集
-mkdir -p outputs/observations
-tools/grasp/grasp capture --url http://ROBOT_IP:18030 \
-  --output outputs/observations/box.npz
-tools/grasp/grasp inspect outputs/observations/box.npz
-# 其余参数见各命令 --help
 tools/grasp/grasp perceive --help
 tools/grasp/grasp ik --help
+.venv/bin/python tools/grasp/perceive_live.py --capture-only
 ```
 
-先核对 `config/grasp/runtime.yaml`：机器人 URDF、相机、SDK URL、TCP、升降映射及实物箱模型。当前示例 TCP 尚未真机验证，`lift_mapping: null` 表示未标定，不得自动填零。
+检测/分割/位姿推理继续使用 `.runtime/vision/venv`。模型准备与校验见 [工具说明](tools/grasp/README.md)，
+真实图像、CAD 和候选点预览见 [视觉诊断说明](docs/LIVE_VISION.md)。本次拆包不重新下载模型或重建 GPU 引擎。
 
-箱体资源改为独立于仿真的路径：
+## 已实现能力与待接入部分
 
-```text
-assets/objects/crate/model.obj
-assets/objects/crate/colliders.json
-```
+| 部分 | 当前状态 |
+| --- | --- |
+| RGB-D 协议、几何预处理、检测/分割/位姿封装 | 已迁移，保留质量门限与诊断标记 |
+| FK、双臂及升降联合 IK、保守包围盒碰撞、轨迹 | 已迁移，输出仍不可直接执行 |
+| 单箱任务状态机、超时、取消、可能持载处理 | 已迁移，有替身回归测试 |
+| SDK 反馈映射、ROS 实测关节与 RGB-D 接收 | 已迁移；ROS 接收依赖开发板 `luxi_interfaces` |
+| 规划适配、网关、网页查询 | 已实现离线规划封装与本地只读管理 |
+| 导航 | 已实现陆图命名点 API 适配，默认不启用；实机运动待现场验收 |
+| 同步实机观测源、真机操作执行 | 未接入，默认 `ready=False` |
+| 多箱调度、任务持久化调度服务、用户权限、配置发布 | 后续开发范围 |
 
-`model.obj` 和碰撞几何应对应实物箱；已有数据不会自动搬移或替换。如果提供了实测长方体组合定义，可运行 `tools/grasp/build_crate_mesh.py` 生成网格。该工具保留，但不再依赖 `build-relay` 生成资产。
+当前 CAD 为约 445×310×180 mm，源开口朝 -Z；历史示例规则仍为 400 mm 宽、220 mm 高。
+独立相机预览脚本翻转 CAD 并从模型推导尺寸，不能将其结果直接当作基座系执行目标。
+TCP、相机外参、深度度量语义、箱沿夹取偏移及升降映射仍需实测验证；所有离线计划与预览保持 `executable=False`。
 
-模型镜像、权重和引擎准备见 [环境说明](tools/grasp/README.md)。板端 SDK/ROS 接口及构建见 [核心包说明](ros2_ws/src/wheel_grasp_core/README.md)。
+已有权重、OBJ、引擎、虚拟环境和历史输出继续原地保留。CAD 原件 `assets/objects/crate/source/box.step` 已被 Git 跟踪；
+其他大体积资产默认忽略，仅资产 README 进入版本管理。
 
-## 真机视觉诊断
+## 部署与开发说明
 
-新增独立只读入口 `tools/grasp/perceive_live.py`：通过 SSH 隧道读取头部 RGB-D，按运行目录保存取图、检测、分割、位姿、坐标变换、抓取点的日志和可视化。失败保留原始响应及已完成阶段的图片。操作步骤、资源要求和帧龄说明见 [真机视觉诊断](docs/LIVE_VISION.md)。该入口不启动运动控制，实物几何及外参未验证时停止后续处理。另提供 `tools/grasp/preview_camera_grasps.py`，使用用户 CAD 在相机坐标下估计位姿并绘制箱沿候选点；它不依赖整机 URDF，结果仅用于视觉检查，不作为机械臂执行目标。
+历史 ROS/GPU Docker 构建入口迁入 `deployment/`，路径已更新；需在目标环境重新构建验证。
+不复用宿主 Python 3.14 的虚拟环境到 ROS Humble 容器，也不将历史 GPU 镜像当作本机原生环境。
 
-## 后续接入
-
-1. 在 `navigation/` 实现地图导航、AprilTag 对接、到位/静止反馈及停止确认。
-2. 为 `vision/PipelineVision` 提供同步 RGB-D/实测关节源，保留采集时间、frame、pair_id 和目标身份。
-3. 在 `motion/executor.py` 实现 SDK 控制权仲裁、双臂轨迹、夹爪、升降、抓持/试抬/支撑反馈；底盘导航控制由导航模块管理。
-4. 在 `main.create_application()` 装配实际适配器，再按只读观测、预抓取、单箱试抬、单箱搬放、多箱工序依次验收。
-
-`main` 只负责装配和启动；业务顺序在任务状态机中，持续的传感器和电机控制由独立节点/进程承担。详见 [架构说明](docs/ARCHITECTURE.md)。
+- [架构与依赖方向](docs/ARCHITECTURE.md)
+- [迁移对照与兼容边界](docs/MIGRATION.md)
+- [接口与当前管理范围](docs/INTERFACES.md)
+- [验证记录与复现方法](docs/VALIDATION.md)
+- [双 SDK 连接与 A/B 导航说明](ros2_ws/src/wheel_navigation/SDK_INTEGRATION_README.md)

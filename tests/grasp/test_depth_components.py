@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from wheel_grasp.vision.geometry import connected_depth_mask
+from wheel_perception_core.geometry import connected_depth_mask
 
 
 def test_depth_discontinuity_separates_background_without_moving_points():

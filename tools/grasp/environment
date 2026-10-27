@@ -2,7 +2,9 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 mkdir -p outputs/grasp assets/models/engines .runtime/grasp .cache/grasp-wheels
-compose=(docker compose -p wheel-robot-grasp -f compose.grasp.yaml)
+compose=(docker compose -p wheel-robot-grasp)
+if [[ -f .env ]]; then compose+=(--env-file .env); fi
+compose+=(-f deployment/compose.grasp.yaml)
 case "${1:-help}" in
   relay|run) echo 'Simulation entry points have been removed; see Git commit 6726ba1 for the former implementation. Use tools/robot status for hardware development.' >&2; exit 2 ;;
   sources) exec python3 tools/grasp/bootstrap_sources.py ;;

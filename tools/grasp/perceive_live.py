@@ -15,14 +15,16 @@ import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT/'ros2_ws/src/wheel_grasp_core'))
+sys.path.insert(0, str(ROOT/'tools'))
+from _bootstrap import configure
+configure(ROOT)
 from runlog import RunLog, write_json
 import cv2
 import numpy as np
-import yaml
-from wheel_grasp.vision.rgbd import RGBDClient, save_observation, load_observation
-from wheel_grasp.vision.visualization import draw_detections, draw_mask, draw_pose, draw_targets
-from wheel_grasp.vision.pipeline import GraspPipeline
+from wheel_task_core.configuration import load_profile
+from wheel_perception_core.rgbd import RGBDClient, save_observation, load_observation
+from wheel_perception_core.visualization import draw_detections, draw_mask, draw_pose, draw_targets
+from wheel_perception_core.pipeline import GraspPipeline
 
 
 def serial(value):
@@ -85,7 +87,7 @@ class LazySegmenter:
     def get(self):
         if self.backend is None:
             with self.trace.stage('detector_segmenter_init'):
-                from wheel_grasp.vision.backends import NanoDetectorSegmenter
+                from wheel_perception_core.backends import NanoDetectorSegmenter
                 m=self.cfg['model']
                 self.backend=NanoDetectorSegmenter(m['owl_engine'],m['sam_encoder'],m['sam_decoder'],m['prompt'],threshold=m.get('threshold',.15))
         return self.backend
@@ -97,7 +99,7 @@ class LazyEstimator:
     def __init__(self,cfg,trace): self.cfg=cfg;self.trace=trace;self.backend=None
     def register(self,inp,mask,identity):
         with self.trace.stage('pose_init'):
-            from wheel_grasp.vision.backends import FoundationPoseBackend
+            from wheel_perception_core.backends import FoundationPoseBackend
             m=self.cfg['model']
             if not self.cfg.get('object_geometry_validated',False):
                 raise ValueError('Supply measured mesh/colliders/rim rules and set object_geometry_validated: true')
@@ -108,7 +110,7 @@ class LazyEstimator:
 class LazyRobot:
     def __init__(self,cfg): self.cfg=cfg
     def transform(self,frame,joints,base):
-        from wheel_grasp.motion.kinematics import RobotModel
+        from wheel_motion_core.kinematics import RobotModel
         if not self.cfg.get('camera_extrinsics_validated',False):
             raise ValueError('Supply real URDF/calibrated camera extrinsics and set camera_extrinsics_validated: true')
         return RobotModel(self.cfg['urdf']).transform(frame,joints,base)
@@ -116,7 +118,7 @@ class LazyRobot:
 
 def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--config',default='config/grasp/runtime.live.yaml')
+    p.add_argument('--config',default='config/robots/runtime.live.yaml')
     p.add_argument('--url',default='http://127.0.0.1:18080',help='SDK RGB-D gateway, normally through SSH tunnel')
     p.add_argument('--camera',default='head_rgb',choices=['head_rgb','left_wrist_rgb','right_wrist_rgb'])
     p.add_argument('--replay',help='Replay an observation NPZ, diagnostic only')
@@ -154,11 +156,11 @@ def main(argv=None):
             for key,subdir in [('TORCH_EXTENSIONS_DIR','torch-extensions'),('XDG_CACHE_HOME','cache'),('MPLCONFIGDIR','matplotlib'),('WARP_CACHE_PATH','warp-cache')]:
                 os.environ.setdefault(key,str(ROOT/'.runtime/vision'/subdir))
                 Path(os.environ[key]).mkdir(parents=True,exist_ok=True)
-            cfg=yaml.safe_load(Path(args.config).read_text())
+            cfg=load_profile(args.config)
             write_json(directory/'config.json',cfg)
-            paths=[Path(__file__),ROOT/'ros2_ws/src/wheel_grasp_core/wheel_grasp/vision/pipeline.py',
-                   ROOT/'ros2_ws/src/wheel_grasp_core/wheel_grasp/vision/backends.py',
-                   ROOT/'ros2_ws/src/wheel_grasp_core/wheel_grasp/vision/geometry.py']
+            paths=[Path(__file__),ROOT/'packages/wheel_perception_core/wheel_perception_core/pipeline.py',
+                   ROOT/'packages/wheel_perception_core/wheel_perception_core/backends.py',
+                   ROOT/'packages/wheel_perception_core/wheel_perception_core/geometry.py']
             paths += [Path(v) for k,v in cfg['model'].items() if k in ('mesh','colliders','owl_engine','sam_encoder','sam_decoder') and v]
             hashes={}
             for path in paths:
@@ -194,7 +196,7 @@ def main(argv=None):
             trace.png('00_rgb',cv2.cvtColor(obs.rgb,cv2.COLOR_RGB2BGR))
             trace.event('capture','observation',camera_id=obs.key[0],pair_id=obs.key[1])
         if args.capture_only:
-            from wheel_grasp.vision.geometry import prepare_input
+            from wheel_perception_core.geometry import prepare_input
             with trace.stage('preprocess'): trace.record('preprocess',inp=prepare_input(obs))
             status='capture_only';return 0
         # Delay missing geometry errors until pose, so detection/segmentation artifacts survive.

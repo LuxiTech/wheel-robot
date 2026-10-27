@@ -6,9 +6,9 @@ from http.server import HTTPServer,BaseHTTPRequestHandler
 import time
 import numpy as np
 import pytest
-from wheel_grasp.vision.pipeline import GraspPipeline
-from wheel_grasp.vision.rgbd import RGBDClient,Observation
-from wheel_grasp.motion.kinematics import RobotModel
+from wheel_perception_core.pipeline import GraspPipeline
+from wheel_perception_core.rgbd import RGBDClient,Observation
+from wheel_motion_core.kinematics import RobotModel
 from test_core import packet,ROOT
 
 
@@ -65,8 +65,8 @@ def test_known_visible_surface_pipeline(tmp_path):
 
 
 def test_live_capture_can_replay_if_available():
-    from wheel_grasp.vision.rgbd import load_observation
-    from wheel_grasp.vision.geometry import prepare_input
+    from wheel_perception_core.rgbd import load_observation
+    from wheel_perception_core.geometry import prepare_input
     file=ROOT/'outputs/grasp/head_rgb_20261016.npz'
     if not file.exists():pytest.skip('Local read-only hardware capture not present')
     obs=load_observation(file);inp=prepare_input(obs)

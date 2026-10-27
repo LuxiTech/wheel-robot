@@ -1,65 +1,46 @@
-# 真机拆码垛架构
+# 分层架构
 
-三个业务模块通过 `contracts.py` 的接口协作，任务层管理工序。保留一个 Python/ROS 核心包，避免在开发初期拆出大量小包；将来需要部署在不同机器时，只替换模块适配器。
-
-## 模块边界
-
-| 模块 | 输入 | 输出/完成条件 | 已有与待开发 |
-|---|---|---|---|
-| `navigation` | 工位 ID | 完成导航、Tag 对接且确认静止；失败抛出异常 | 工作目录和接口已建，Nav2/AprilTag 实现待开发 |
-| `vision` | 目标 ID、RGB-D、曝光时刻的实测关节、模型 | 基座系箱体位姿、左右手抓取/预抓取姿态、质量、pair_id、采集时间 | 核心算法保留；任务使用的同步实机观测源待接入 |
-| `motion` | 视觉目标、实测机器人状态、场景、放置槽位 | 可验证的规划、预抓取/接近/夹持/试抬/放置结果 | FK/IK/轨迹/碰撞及 SDK 映射保留；真实执行闭环待实现 |
-| `task` | 一个明确目标箱和源/目标工位、目标槽位 | 阶段事件、成功/失败及可能持载状态 | 异步工序协调已实现 |
-
-视觉不向机器人发送命令；运动控制不选择箱号或决定先拆哪层；导航不控制双臂。导航负责底盘运动的唯一控制来源，运动执行器必须在移动前提供实测运输姿态并持续监测载荷。
-
-## 执行流程与 main 的职责
+## 依赖方向
 
 ```text
-main：读配置 → 装配三个适配器 → 启动 TaskCoordinator → 保存结果
-
-TaskCoordinator：
-检查模块就绪
-  → 空载运输姿态
-  → 导航/Tag 对接源工位
-  → 观测 → 规划 → 预抓取
-  → 重新观测 → 重新规划 → 接近
-  → 夹紧并确认抓持 → 试抬并确认
-  → 持载运输姿态
-  → 导航/Tag 对接目标工位
-  → 放置、确认支撑、释放、退出
-  → COMPLETE
+management_web → HTTP → management_api → wheel_gateway → wheel_runtime
+wheel_runtime → wheel_task_core + navigation/perception/execution 适配器
+    management_api → wheel_navigation 服务 → wheel_sdk_bridge HTTP 传输 → 外部 SDK API
+wheel_perception → wheel_perception_core → wheel_task_core
+wheel_planning → wheel_motion_core → wheel_task_core
+wheel_execution → wheel_sdk_bridge + wheel_planning（真机接入待实现）
+wheel_sdk_bridge → 厂商协议/ROS 消息（ROS 在 main 内按需导入）
+wheel_bringup → launch 参数 → description / SDK state bridge
 ```
 
-`task/coordinator.py` 的 `run()` 表达顺序，但每一步都是可等待、可超时、可取消的异步操作。它不承担 ROS spin、相机采集循环或高频电机闭环；这些应留在 ROS 节点或机器人本地 SDK 中。无需把所有设备控制写进一个阻塞 `main()`，也不需要为了顺序任务先引入行为树框架。
+核心业务契约通过 Protocol 注入，不知道具体适配器。感知与运动算法共用 `wheel_task_core.transforms.pose`，不相互导入。
+`packages/` 下三个包是标准 Python 库，`ros2_ws/src/` 下各包是 ROS 构建与部署边界。包不等于进程，也不等于容器。
 
-后续 ROS 适配器可把这些异步调用映射为 action client：发送目标、等待反馈/结果、取消并等待确认。返回 `None` 表示实测完成，不能把 action 被接受或命令已发布视为完成。具体 Nav2 API 和机器人轨迹接口在接入阶段实现。
+## 当前实现
 
-当前每个任务处理一箱。多箱拆码垛由上层工序策略依次创建 `TransferJob`，明确目标箱和槽位；不能把旧双机固定 2×3 排列或模拟器箱体索引当作真实视觉库存。首期没有自动多箱调度或双机推台接力。
+任务协调器保持“空载运输 → 源工位 → 观测/规划/预抓取 → 再观测/再规划/接近 → 夹紧确认 → 试抬 → 持载运输 → 目标工位 → 放置退出”。
+检查 target_id、pair_id、基座 frame、质量、诊断标记、观测年龄；耗时规划完成后再次检查年龄。
+夹紧前置位 may_be_holding；异常分别尝试底盘停止和机械臂保持，单路失败不屏蔽另一路，且不隐式释放载荷。
 
-## 数据与执行边界
+`wheel_runtime.main.create_application` 默认不注入导航服务，视觉与运动执行器仍未就绪。`wheel_planning` 只提供实际可调用的离线规划封装。
+`wheel_gateway` 查询默认装配、固定配置目录和本地任务结果；不是在线 ROS 状态订阅器。网页/API 不创建第二个拆码垛任务状态机。新增独立 NavigationService 管理 A/B 请求和反馈，CLI 显式开启后才运行导航监测；该服务由网页和可注入的任务适配器共同复用，设备控制仍由 SDK 执行。
 
-- 视觉保留检测、分割、位姿注册/跟踪、深度连通域、表面残差、ROI 关联及箱沿规则。`PipelineVision` 将已有 `GraspPipeline` 输出转换为统一观测。
-- 观测时间必须换算到任务进程的 monotonic 时间域；`SynchronizedCapture` 的来源负责曝光时间及关节对齐。HTTP 读取完成的时间不能冒充曝光时间。
-- 任务层检查目标 ID、非空/不重复 pair_id、机器人基座 frame、质量、诊断标记、观测年龄。重新规划后再次检查年龄，避免耗时规划完成后使用旧目标。
-- `MotionPlan` 必须对应当前观测且通过碰撞和执行就绪检查。已有 `plan_pair()` 仍返回 `executable=False`；不能仅为了让状态机继续而修改这个标志。
-- 运动适配器需校验实测状态、TCP、升降映射、场景碰撞、轨迹跟踪和控制权；在接近过程中持续检查状态。首期可分阶段执行升降和双臂，不能把联合 IK 有解当成硬件已具备同步执行能力。
-- 目标槽位须由任务/工位配置定义，并经真实工位变换转换为放置目标；`motion.place()` 还需实现该规划和支撑/释放反馈。
-- 默认适配器 `ready=False`，`main` 不动态加载任意插件，也没有自动连接设备或仿真兜底。
+`wheel_interfaces` 已迁移已有消息/action 定义；新增各能力 action server、北向任务写入接口以及运行时常驻调度服务均未实现。
 
-## 失败与取消
+## 部署边界
 
-每步都有超时。开始夹紧前将 `may_be_holding` 置为真：即使夹紧请求超时，也可能已经夹住箱子。只在放置适配器确认支撑、释放并退出后清除此状态。
+机器人本机部署 SDK 适配、执行、任务运行时和网关；GPU 主机部署视觉/规划；管理 API、前端与数据库可独立部署。
+当前代码仍以开发机源码工具运行，上述跨机任务通信拓扑是接入目标，不能据目录齐全认定已实现。
+模型推理不进入 Web worker；设备控制与断流保持由机器人本地执行层负责。
 
-运行异常和任务取消会分别尝试导航停止及机械臂保持。任一停止失败不阻止另一路，失败内容记录在结果中；`HOLD` 表示任务请求保持并可能持载，不代表硬件停止已被证实。不会隐式开夹爪、回零、park 或断转矩。
+## 配置与资产
 
-适配器必须响应取消并终止远端 action，真正的断流/控制租期仍由机器人本机执行。任务层 asyncio 超时不能代替驱动看门狗。失败或完成后不复用同一协调器自动续跑；恢复需要重新确认状态并建立新任务。
+robots 保存设备/相机/TCP/模型引擎引用，recipes 保存箱体几何与抓取规则，stations 保存工位，deployments 保存任务与锁定环境。
+机器人 profile 引用一个相对 recipe；深合并后 profile 字段优先。禁用嵌套 recipe 包含，避免隐式依赖链。
+未验证参数继续保留 false/null，不在重构时标记为已标定。历史输出、SDK 本体、模型、CAD 与环境不迁移或重建。
 
-## 隔离部署
+## 后续扩展
 
-- `.venv`：纯逻辑/几何测试和本地只读工具。
-- SDK/ROS 容器：Humble、SDK 消息、实测状态/TF，未来增加机器人本地执行桥。
-- 感知容器：锁定模型源码、CUDA/PyTorch/TensorRT、权重和引擎。
-- Nav2/AprilTag：先预留目录，后续按真实传感器和机器人部署环境建立独立 ROS 启动配置。
-
-当前 `PipelineVision` 可以在本进程中装配模型用于开发；跨 SDK/感知容器部署时，应以同一 `Vision` 契约实现传输适配器，保留时间、身份及取消语义。当前并未实现跨进程任务服务。
+能力调用落地为 ROS Action 时保留进度、取消和实测完成语义。连续反馈走 Topic，短时查询走 Service。
+上层以 task_id/command_id 幂等提交，运行时持有唯一任务执行权；管理数据库保存投影视图。
+配置发布、权限、审计与在线事件流在独立管理层扩展，不能绕过运行时直接控制 SDK。

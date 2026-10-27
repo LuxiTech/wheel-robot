@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import cv2
 import numpy as np
-from wheel_grasp.vision.visualization import project_points,draw_targets
+from wheel_perception_core.visualization import project_points,draw_targets
 
 
 def test_projection_extrinsics_and_invalid_depth():

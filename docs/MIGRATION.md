@@ -1,54 +1,42 @@
-# 本次结构迁移清单
+# 0.3.0 拆包迁移
 
-迁移前基线为 `6726ba1`。重构在当前 `dev-real` 工作区进行，没有删除外部资源、虚拟环境、已下载源码或运行结果。
+本次在原有硬件开发工程上执行源码迁移，不修改厂商 SDK 本体、不复制模型权重、不启用真机运动。
+旧单体包和旧 import 已移除，工具与测试统一使用新入口，没有并行维护旧实现。
 
-## 保留并移动
+| 旧位置 | 新位置 |
+| --- | --- |
+| wheel_grasp/contracts.py、task/ | packages/wheel_task_core/wheel_task_core/ |
+| wheel_grasp/vision/ 中算法 | packages/wheel_perception_core/wheel_perception_core/ |
+| motion/kinematics.py、planning.py、collision.py | packages/wheel_motion_core/wheel_motion_core/ |
+| motion/sdk.py、feedback.py、ros_state.py、vision/ros.py | ros2_ws/src/wheel_sdk_bridge/wheel_sdk_bridge/ |
+| vision/service.py | ros2_ws/src/wheel_perception/wheel_perception/service.py |
+| navigation/adapter.py | ros2_ws/src/wheel_navigation/wheel_navigation/adapter.py |
+| motion/executor.py | ros2_ws/src/wheel_execution/wheel_execution/executor.py |
+| main.py、cli.py | ros2_ws/src/wheel_runtime/wheel_runtime/ |
+| wheel_grasp_interfaces | ros2_ws/src/wheel_interfaces |
+| wheel_grasp_core/launch | ros2_ws/src/wheel_bringup/launch |
+| config/grasp/runtime*.yaml | config/robots/runtime*.yaml |
+| runtime*.yaml 中共享 rules/model 资产引用 | config/recipes/crate.example.yaml |
+| config/task.yaml | config/deployments/task.yaml |
+| config/navigation | config/stations |
+| config/grasp/*lock.json、验证环境 | config/deployments/ |
+| config/grasp/crate-cad.json | config/recipes/crate-cad.json |
+| docker/、compose.grasp.yaml | deployment/docker/、deployment/compose.grasp.yaml |
 
-以下旧路径相对 `ros2_ws/src/wheel_grasp_core/wheel_grasp/`：
+## 使用者调整
 
-| 旧文件 | 新位置 | 保留内容 |
-|---|---|---|
-| `rgbd.py`、`ros.py` | `vision/` | 成对 RGB-D、严格解码、录制/回放、ROS 接收 |
-| `backends.py` | `vision/` | NanoOWL/NanoSAM/FoundationPose 适配 |
-| `geometry.py`、`pipeline.py` | `vision/` | 输入几何、箱体位姿、深度质量、箱沿抓取规则 |
-| `association.py`、`visualization.py` | `vision/` | 目标 ROI 关联、投影和结果可视化 |
-| `kinematics.py`、`planning.py`、`collision.py` | `motion/` | URDF FK、双臂升降 IK、轨迹与碰撞 |
-| `sdk.py`、`ros_state.py` | `motion/` | SDK 顺序/坐标/租期、实测关节发布 |
-| `state.py` 中的 `JointHistory` | `motion/feedback.py` | 曝光时刻关节插值、拒绝外推 |
-| `state.py` 中的 `TaskState` | `task/state.py` | 细粒度抓取阶段校验，供动作实现复用 |
-| `tools/grasp/pipeline_worker.py` 中的 `measured_state` | `motion/feedback.py` | 真机反馈健康度、时效和升降映射检查 |
+`tools/robot`、`tools/grasp/grasp`、`tools/grasp/perceive` 的命令名称保留，内部源码发现机制已更新。
+console script `wheel-robot`/`wheel-grasp` 属于 wheel_runtime，`wheel-grasp-state`/`wheel-grasp-rgbd` 属于 wheel_sdk_bridge。
+自有脚本应更新为 wheel_task_core / wheel_perception_core / wheel_motion_core / 对应适配包的 import。
+旧虚拟环境里 `wheel_grasp_core` 的 editable 元数据可能残留；源码工具不依赖该元数据。需要 console script 时重新安装对应新包。
+本次已将开发机 `.venv` 的旧安装卸载并安装 10 个新包；旧源码目录中仅剩的字节码和 egg-info 已归档到 `.runtime/refactor/legacy-wheel_grasp_core`。
 
-新增 `contracts.py`、`task/coordinator.py`、`vision/service.py`、`motion/executor.py`、`navigation/adapter.py`、`main.py` 和 `tools/robot`。
+Docker Compose 从仓库根运行：`docker compose --env-file .env -f deployment/compose.grasp.yaml config`。
+构建上下文和挂载源目录相对于 Compose 文件修正；核心库先安装，再构建 ROS 适配包。
+历史输出中的原路径/commit 作为证据保留，不回写。
 
-Python import 改为 `wheel_grasp.vision.*`、`wheel_grasp.motion.*`、`wheel_grasp.task.*`。旧平铺 import 不再提供兼容层。SDK 和感知镜像需重新构建，打包通过 `find_packages()` 包含子模块。
+## 未改变的资产和能力限制
 
-## 已删除的旧仿真内容
-
-旧仿真代码曾临时集中到 `legacy` 目录，现已按清理要求删除本地归档。历史实现仍保存在 Git 提交 `6726ba1`。
-
-| 原内容 | 删除原因 |
-|---|---|
-| 整个 `scripts/`，含双机接力、网页、录像和实验导航 | 不作为真机启动路径 |
-| `relay_runtime.py`、`relay_task.py` 等 | 依赖仿真接触、世界位姿、固定库存与推台 |
-| `arm_ik.py`、`whole_body_control.py`、`gpu_whole_body_ik.py` | 主路径统一使用 `motion/kinematics.py`；旧 CPU/CUDA IK 可从 Git 历史恢复 |
-| `run_pipeline.py`、`pipeline_worker.py`、`run_relay_model.py`、`relay_model_worker.py` | 原流程最终调用仿真，不是硬件执行器；反馈检查已迁入 `motion/feedback.py` |
-| 原场景、接力、导航及仿真 profile | 实机参数按工位、机器人和实物箱建立 |
-| 仿真 compose、Blender/FAST-LIVO Dockerfile | 不进入真机容器链路 |
-| 原非抓箱测试、抓箱仿真专用测试 | 当前仅保留主工程算法与任务测试 |
-| 原 README、历史设计/验收记录 | 历史结论不代表真机已验收 |
-
-另外清理了 Blender 下载缓存、Isaac 运行目录、空的旧生成资产目录及 Python/pytest 缓存。虚拟环境、模型源码、SDK、现有运行报告和 uv 安装缓存继续保留。
-
-若要复跑完整旧版本，请创建原提交的独立工作区并按其 README 准备外部资产：
-
-```bash
-git worktree add --detach ../wheel-robot-sim-reference 6726ba1
-```
-
-## 继续使用
-
-模型锁与源码锁、`tools/grasp` 模型下载/校验/引擎工具、`runlog.py`、ROS 工具/推理 Dockerfile、`compose.grasp.yaml`、ROS interfaces 和纯核心测试继续保留。本地 SDK 子模块已删除，SDK 仅保留在开发板；`build-sdk` / `sdk_bridge` 已替换为 `build-ros` / `ros_tools`，下载与 HTTP 采集使用不含 SDK 的 ROS 工具镜像。运行配置中的 `sdk_commit` 仅记录板端协议参考版本，历史验证报告保持原样；SSH 执行链路仍待接入。
-
-`compose.grasp.yaml` 已移除仿真服务；`tools/grasp/environment run|relay` 会明确报入口已移除的提示。真正任务入口为 `tools/robot`，但硬件适配器尚未实现。
-
-外部箱体模型配置由 `assets/generated/...` 改为 `assets/objects/crate/`，不再需要先构建双机场景才能开发视觉。配置中的现有 TCP 和升降映射验证标志仍然保留，不能把迁移视为标定完成。
+.env、.venv、.runtime、outputs、third_party 以及被忽略的 assets 文件继续原地保留。
+真实 URDF 仍未提供；wheel_description 的 urdf/meshes 是明确的资源边界，不放入假机器人模型。
+导航、SDK 运动执行和同步采集源保持未就绪。网页仅提供只读管理，完整调度/权限/参数发布等待后续实现。

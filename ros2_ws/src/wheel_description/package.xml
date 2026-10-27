@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>wheel_description</name><version>0.3.0</version>
+  <description>wheel_description resources for wheel-robot.</description>
+  <maintainer email="dev@luxitech.local">LuxiTech</maintainer><license>Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <export><build_type>ament_cmake</build_type></export>
+</package>

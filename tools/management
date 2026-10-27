@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT"
+source "$ROOT/tools/pythonpath.sh"
+PYTHON=${WHEEL_MANAGEMENT_PYTHON:-$ROOT/.runtime/management/venv/bin/python}
+if [[ ! -x "$PYTHON" ]]; then
+  echo 'Prepare .runtime/management/venv; see apps/management_api/README.md.' >&2
+  exit 2
+fi
+exec "$PYTHON" -m management_api --root "$ROOT" "$@"

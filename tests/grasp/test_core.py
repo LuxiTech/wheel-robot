@@ -7,11 +7,11 @@ import cv2
 import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
-from wheel_grasp.vision.rgbd import decode,save_observation,load_observation
-from wheel_grasp.vision.geometry import prepare_input,rim_targets,mask_quality
-from wheel_grasp.motion.kinematics import RobotModel,PairIK
-from wheel_grasp.motion.planning import plan_pair,sample_trajectory
-from wheel_grasp.motion.sdk import LiftMapping,arm_feedback,LocalLease
+from wheel_perception_core.rgbd import decode,save_observation,load_observation
+from wheel_perception_core.geometry import prepare_input,rim_targets,mask_quality
+from wheel_motion_core.kinematics import RobotModel,PairIK
+from wheel_motion_core.planning import plan_pair,sample_trajectory
+from wheel_sdk_bridge.sdk import LiftMapping,arm_feedback,LocalLease
 
 ROOT=Path(__file__).resolve().parents[2]
 URDF=ROOT/'assets/robots/r680_lift_openarm/r680_lift_openarm_sim.urdf'
@@ -157,7 +157,7 @@ def test_inverse_brown_real_input_shape():
 
 
 def test_joint_history_no_latest_feedback_substitution():
-    from wheel_grasp.motion.feedback import JointHistory
+    from wheel_sdk_bridge.feedback import JointHistory
     history=JointHistory();history.append(1.,{'j':0});history.append(1.05,{'j':1})
     assert history.at(1.025)['j']==pytest.approx(.5)
     with pytest.raises(ValueError):history.at(1.1)
@@ -173,7 +173,7 @@ def test_unverified_source_age_stays_diagnostic():
 
 
 def test_collision_separating_axes():
-    from wheel_grasp.motion.collision import Box,overlaps
+    from wheel_motion_core.collision import Box,overlaps
     a=Box('a',np.eye(4),np.array([1,.1,.1]))
     t=np.eye(4);t[:3,3]=[0,1,0];b=Box('b',t,np.array([1,.1,.1]))
     assert not overlaps(a,b)
@@ -183,7 +183,7 @@ def test_collision_separating_axes():
 
 
 def test_task_rejects_stale_plan_and_cancel_does_not_release():
-    from wheel_grasp.task.state import TaskState
+    from wheel_task_core.state import TaskState
     state=TaskState();state.begin('box1');state.observed('box1','pair1',quality_valid=True)
     with pytest.raises(ValueError):state.planned('pair0',collision_checked=True,hardware_ready=True)
     state.planned('pair1',collision_checked=False,hardware_ready=True)

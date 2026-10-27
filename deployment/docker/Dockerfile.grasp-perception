@@ -1,0 +1,35 @@
+ARG FOUNDATIONPOSE_BASE=wenbowen123/foundationpose@sha256:22837f81c0cfc1906b96daa344f8e80919c7619b816fcab487a024f1f566c215
+FROM ${FOUNDATIONPOSE_BASE}
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV PATH=/opt/conda/envs/my/bin:/usr/local/cuda/bin:${PATH}
+COPY tools/grasp/requirements-perception.txt /tmp/requirements-perception.txt
+COPY .cache/grasp-wheels /opt/wheels
+RUN python -m pip install nvidia-cuda-runtime-cu12==12.1.105 nvidia-cudnn-cu12==8.9.2.26 nvidia-cublas-cu12==12.1.3.1 \
+    && if compgen -G '/opt/wheels/tensorrt_libs-8.6.1-*.whl' >/dev/null \
+       && compgen -G '/opt/wheels/tensorrt_bindings-8.6.1-cp38-*.whl' >/dev/null; then \
+      python -m pip install --no-index --find-links=/opt/wheels tensorrt-libs==8.6.1 tensorrt-bindings==8.6.1; \
+    else \
+      python -m pip install --extra-index-url https://pypi.nvidia.com tensorrt-libs==8.6.1 tensorrt-bindings==8.6.1; \
+    fi \
+    && NVIDIA_TENSORRT_DISABLE_INTERNAL_PIP=1 python -m pip install -r /tmp/requirements-perception.txt
+COPY third_party/torch2trt /opt/torch2trt
+COPY third_party/nanoowl /opt/nanoowl
+COPY third_party/nanosam /opt/nanosam
+RUN python -m pip install --no-deps --no-build-isolation /opt/torch2trt /opt/nanoowl /opt/nanosam
+COPY third_party/FoundationPose /opt/FoundationPose
+RUN cmake -S /opt/FoundationPose/mycpp -B /opt/FoundationPose/mycpp/build \
+    -DPYTHON_EXECUTABLE=/opt/conda/envs/my/bin/python \
+    && cmake --build /opt/FoundationPose/mycpp/build -j4 \
+    && ln -s /workspace/assets/models/FoundationPose /opt/FoundationPose/weights
+COPY packages /opt/wheel_packages
+RUN python -m pip install --no-deps --no-build-isolation /opt/wheel_packages/wheel_task_core /opt/wheel_packages/wheel_perception_core /opt/wheel_packages/wheel_motion_core \
+    && python -m pip freeze > /opt/perception-packages.txt
+ENV PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 \
+    HF_HOME=/workspace/assets/models/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    PYTHONPATH=/opt/FoundationPose:/opt/nanosam \
+    TORCH_EXTENSIONS_DIR=/workspace/.runtime/grasp/torch-extensions \
+    XDG_CACHE_HOME=/workspace/.runtime/grasp/cache \
+    MPLCONFIGDIR=/tmp/matplotlib
+WORKDIR /workspace
+ENTRYPOINT ["/opt/conda/envs/my/bin/python"]
+CMD ["tools/grasp/check_environment.py"]

@@ -4,7 +4,20 @@
 !.env.example
 
 # External models, generated scenes, recordings, and third-party sources
-/assets/
+/assets/**
+!/assets/README.md
+!/assets/models/
+!/assets/models/README.md
+!/assets/models/engines/
+!/assets/models/engines/README.md
+!/assets/objects/
+!/assets/objects/README.md
+!/assets/objects/crate/
+!/assets/objects/crate/README.md
+!/assets/objects/crate/source/
+!/assets/objects/crate/source/README.md
+!/assets/robots/
+!/assets/robots/README.md
 /video/
 /third_party/
 
@@ -29,3 +42,9 @@ venv/
 /ros2_ws/install/
 /ros2_ws/log/
 *.egg-info/
+
+/apps/**/node_modules/
+/apps/**/dist/
+/packages/*/build/
+/ros2_ws/src/*/build/
+/apps/*/build/

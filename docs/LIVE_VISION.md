@@ -23,7 +23,7 @@ ssh -N -o ExitOnForwardFailure=yes \
 
 ## 推理与资源
 
-使用隔离的 `.runtime/vision/venv`，配置是 `config/grasp/runtime.live.yaml`。模型权重沿用已校验的 `assets/models`，本机引擎由 `tools/grasp/build_engines.py` 构建，不能借用其他 GPU 的 engine。
+使用隔离的 `.runtime/vision/venv`，配置是 `config/robots/runtime.live.yaml`。模型权重沿用已校验的 `assets/models`，本机引擎由 `tools/grasp/build_engines.py` 构建，不能借用其他 GPU 的 engine。
 
 本机 RTX 5090 使用 Python 3.11、PyTorch 2.7.1/cu128、TensorRT 10.8；与历史容器环境分开。安装脚本仅准备检测/分割，不宣称 FoundationPose 的 CUDA 扩展已可用：
 
@@ -83,7 +83,7 @@ tools/grasp/perceive \
 
 ## 原生 FoundationPose 环境
 
-先准备上述检测环境，原生位姿源版本单独锁在 `config/grasp/native-pose.sources.lock.json`（PyTorch3D 0.7.9、nvdiffrast 0.3.3）。`setup_native_pose.py` 在同一隔离环境构建 CUDA 扩展和上游 `mycpp`，不安装系统包。需要 CUDA 12.8 完整开发工具链以及兼容的 GCC/G++（本机使用已有 GCC 13.4）。`CUDA_HOME` 应具有 `bin/nvcc`、`include` 和 `lib64`；Conda 分离布局可在 `.runtime/vision/cuda` 建立指向现有工具链的符号链接，不能改动原环境。
+先准备上述检测环境，原生位姿源版本单独锁在 `config/deployments/native-pose.sources.lock.json`（PyTorch3D 0.7.9、nvdiffrast 0.3.3）。`setup_native_pose.py` 在同一隔离环境构建 CUDA 扩展和上游 `mycpp`，不安装系统包。需要 CUDA 12.8 完整开发工具链以及兼容的 GCC/G++（本机使用已有 GCC 13.4）。`CUDA_HOME` 应具有 `bin/nvcc`、`include` 和 `lib64`；Conda 分离布局可在 `.runtime/vision/cuda` 建立指向现有工具链的符号链接，不能改动原环境。
 
 本机 Ubuntu 26.04 的 Eigen/Boost 头文件仅下载并解包到项目目录：
 
@@ -115,7 +115,7 @@ done
 
 ## 已导入的实物 CAD（2026-10-23）
 
-用户提供 `/home/luxi/下载/码垛.STEP`，原件复制至 `assets/objects/crate/source/box.step`；米制网格为配置已引用的 `assets/objects/crate/model.obj`，尺寸约 445×310×180 mm，源文件包含两个实体。转换保留原坐标方向，并将 XY 中心、最低 Z 作为网格原点；清理 4 个零面积三角形后网格封闭、法向绕序一致。原始转换网格也保存在 `source/model.raw.obj`。来源、转换指纹见 `model.cad.json`，项目内登记见 `config/grasp/crate-cad.json`，预览见 `cad_preview.png`。
+用户提供 `/home/luxi/下载/码垛.STEP`，原件复制至 `assets/objects/crate/source/box.step`；米制网格为配置已引用的 `assets/objects/crate/model.obj`，尺寸约 445×310×180 mm，源文件包含两个实体。转换保留原坐标方向，并将 XY 中心、最低 Z 作为网格原点；清理 4 个零面积三角形后网格封闭、法向绕序一致。原始转换网格也保存在 `source/model.raw.obj`。来源、转换指纹见 `model.cad.json`，项目内登记见 `config/recipes/crate-cad.json`，预览见 `cad_preview.png`。
 
 **当前 CAD 开口朝 -Z，原抓取规则假定开口朝 +Z。** 必须先统一开口朝向、重新提取抓取几何及表面校验模型；旧示例中的 0.4 m 宽、0.22 m 高不能继续当作该箱参数。尚未自动将 `object_geometry_validated` 设为 true。仅看相机坐标下的抓取点投影不需要整机 URDF；转换到机器人基座、驱动夹爪时才需要真实安装变换、TCP 和相应关节状态。深度值语义仍需校验。
 
@@ -128,7 +128,7 @@ uv pip install --python .runtime/cad/venv/bin/python cadquery-ocp==8.0.1.1.0 tri
   assets/objects/crate/source/box.step --output assets/objects/crate/model.obj
 ```
 
-工具拒绝覆盖已有模型；重转换时指定新输出文件。CAD、OBJ 和图片位于被 Git 忽略的 `assets/`，克隆代码不会自动获得它们。
+工具拒绝覆盖已有模型；重转换时指定新输出文件。STEP 原件已在后续提交中纳入 Git；OBJ、权重和历史图片仍被忽略，克隆代码不会自动获得这些生成资产。
 
 ## 相机图上的抓取候选点预览（已运行）
 
@@ -153,3 +153,8 @@ uv pip install --python .runtime/cad/venv/bin/python cadquery-ocp==8.0.1.1.0 tri
 ```
 
 该次近距离、夹爪遮挡画面的输出为 `outputs/grasp/camera-preview/6de135db8b/`，轮廓 IoU 约 0.822，投影点与夹爪区域重叠；不能据此认定实际夹取准确。
+
+
+## 0.3.0 结构迁移
+
+本文保留历史实验结果。当前算法在 packages/wheel_perception_core，入口仍为 tools/grasp；runtime.live.yaml 位于 config/robots，共享箱体规则位于 config/recipes。运行工具已适配新导入，不修改既有结果目录或 GPU 引擎。

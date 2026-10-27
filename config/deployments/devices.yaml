@@ -1,0 +1,16 @@
+# External SDKs are read-only dependencies. No source directory is imported or modified.
+atlas:
+  base_url: http://192.168.4.118:8082
+  map_name: unstacking
+lift:
+  base_url: http://192.168.0.245:8000
+navigation:
+  allowed_points: [A, B]
+  request_timeout_s: 3.0
+  mission_timeout_s: 180.0
+  feedback_max_age_s: 2.0
+  stop_timeout_s: 8.0
+  poll_interval_s: 0.5
+  station_points:
+    source_pallet: A
+    target_pallet: B

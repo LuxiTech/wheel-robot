@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'tools/grasp'))
 from perceive_live import Trace, LazyEstimator, LazyRobot
-from wheel_grasp.vision.geometry import ModelInput
+from wheel_perception_core.geometry import ModelInput
 
 
 def test_images_and_deep_error_survive_failure(tmp_path):

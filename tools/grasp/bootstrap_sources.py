@@ -14,7 +14,7 @@ def git(*args, cwd=ROOT):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--lock',default='config/grasp/dependencies.lock.json')
+    parser.add_argument('--lock',default='config/deployments/dependencies.lock.json')
     args=parser.parse_args()
     lock = json.loads((ROOT/args.lock).read_text())
     for name, item in lock.items():

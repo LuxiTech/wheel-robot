@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from wheel_grasp.vision.service import PipelineVision, SynchronizedCapture
+from wheel_perception.service import PipelineVision, SynchronizedCapture
 
 
 @pytest.mark.parametrize('diagnostic', [True, False])

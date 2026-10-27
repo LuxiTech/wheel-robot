@@ -1,0 +1,12 @@
+:root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#172d3c;background:#f4f7fa;line-height:1.6}
+.sdk-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.sdk-cards p{overflow-wrap:anywhere}.small{font-size:13px;color:#617785}.point-card{border:1px solid #dce7ef;border-radius:8px;padding:16px}.point-card strong{font-size:22px;color:#164f6a}.navigation-actions{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.navigation-actions button{min-width:130px}.navigation-actions .stop{background:#994237}#nav-reasons{font-size:13px;color:#8b672b}#nav-command{font-size:13px;overflow-wrap:anywhere}.section-heading{display:flex;justify-content:space-between;gap:12px}.section-heading h2{margin-bottom:0}@media(max-width:650px){.sdk-cards{grid-template-columns:1fr}.section-heading{flex-direction:column}}
+*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1200px;margin:auto;padding:28px}
+header{display:flex;align-items:center;justify-content:space-between;gap:20px}h1{margin:4px 0;font-size:28px}h2{font-size:18px;margin-top:0}h3{font-size:14px;color:#5d7182}
+.eyebrow{font-size:12px;letter-spacing:3px;color:#547587}.badge{font-size:13px;color:#39627c;margin-right:18px}
+button{border:0;border-radius:8px;background:#164f6a;color:white;padding:10px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}
+.notice{padding:16px 20px;border-left:3px solid #d5a345;background:#fff8e9;border-radius:5px}#message{font-size:13px;color:#627686}
+section{background:white;border:1px solid #e0e8ef;border-radius:12px;padding:24px;margin:20px 0}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.card{padding:20px;background:#f6f9fc;border-radius:8px}.card span{display:block;font-size:14px}.card strong{display:block;font-size:22px;margin-top:8px}.pending{color:#a77221}.ready{color:#14806c}
+.columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.columns section{margin:0}li{margin:6px 0}ol{padding-left:24px}ul{padding-left:20px;font-size:13px}
+.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:12px;border-bottom:1px solid #e6edf2}th{color:#617785}footer{font-size:12px;color:#738995}
+@media(max-width:760px){header{align-items:flex-start;flex-direction:column}.cards{grid-template-columns:repeat(2,1fr)}.columns{grid-template-columns:1fr}header,main,footer{padding:18px}section{padding:18px}h1{font-size:23px}}

@@ -26,7 +26,7 @@ def main():
     for path in (headers/'eigen3/Eigen/Core',headers/'boost/assign.hpp',cuda/'bin/nvcc'):
         if not path.exists():raise FileNotFoundError(path)
     def run(command,**kwargs):subprocess.run(command,check=True,**kwargs)
-    run([sys.executable,'tools/grasp/bootstrap_sources.py','--lock','config/grasp/native-pose.sources.lock.json'])
+    run([sys.executable,'tools/grasp/bootstrap_sources.py','--lock','config/deployments/native-pose.sources.lock.json'])
     run([args.uv,'pip','install','--python',sys.executable,'-r','tools/grasp/requirements-native-pose.txt'])
     env=os.environ.copy()
     env.update(CUDA_HOME=str(cuda),CC=args.cc,CXX=args.cxx,MAX_JOBS='4',CUB_HOME=str(cuda/'include'))

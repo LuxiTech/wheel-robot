@@ -2,5 +2,5 @@
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-export PYTHONPATH="$ROOT/ros2_ws/src/wheel_grasp_core${PYTHONPATH:+:$PYTHONPATH}"
-exec "$ROOT/.venv/bin/python" -m wheel_grasp.main "$@"
+source "$ROOT/tools/pythonpath.sh"
+exec "$ROOT/.venv/bin/python" -m wheel_runtime.main "$@"

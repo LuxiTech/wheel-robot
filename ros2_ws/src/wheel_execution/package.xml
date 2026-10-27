@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>wheel_execution</name><version>0.3.0</version>
+  <description>wheel_execution runtime adapter for wheel-robot.</description>
+  <maintainer email="dev@luxitech.local">LuxiTech</maintainer><license>Proprietary</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>wheel_sdk_bridge</exec_depend><exec_depend>wheel_planning</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

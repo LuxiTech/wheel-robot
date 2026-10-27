@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]/'tools/grasp'))
 from runlog import RunLog
-from wheel_grasp.motion.feedback import measured_state
+from wheel_sdk_bridge.feedback import measured_state
 
 
 def state():

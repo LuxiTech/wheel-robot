@@ -7,7 +7,9 @@ import sys
 import time
 
 ROOT=Path(__file__).resolve().parents[2]
-sys.path.insert(0,str(ROOT/'ros2_ws/src/wheel_grasp_core'))
+sys.path.insert(0, str(ROOT/'tools'))
+from _bootstrap import configure
+configure(ROOT)
 sys.path.insert(0,str(ROOT/'third_party/FoundationPose'))
 
 
@@ -26,8 +28,8 @@ def main():
     import nvdiffrast.torch as dr
     from scipy.spatial.transform import Rotation
     from Utils import nvdiffrast_render
-    from wheel_grasp.vision.geometry import ModelInput
-    from wheel_grasp.vision.backends import FoundationPoseBackend
+    from wheel_perception_core.geometry import ModelInput
+    from wheel_perception_core.backends import FoundationPoseBackend
     from runlog import RunLog,write_json
     import uuid
     out=ROOT/'outputs/grasp/native-pose-smoke'/uuid.uuid4().hex[:8];out.mkdir(parents=True)

@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from wheel_grasp.contracts import GraspObservation, MotionPlan, TransferJob
-from wheel_grasp.main import create_application, main
-from wheel_grasp.task.coordinator import TaskCoordinator, WORKFLOW
+from wheel_task_core.contracts import GraspObservation, MotionPlan, TransferJob
+from wheel_runtime.main import create_application, main
+from wheel_task_core.coordinator import TaskCoordinator, WORKFLOW
 
 
 JOB = TransferJob('box1', 'source', 'destination', 'slot1')

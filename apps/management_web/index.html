@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wheel Robot · 管理控制台</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><div><span class="eyebrow">WHEEL ROBOT</span><h1>机器人管理控制台</h1></div>
+<div><span class="badge" id="control-mode">正在读取运行模式</span><button id="refresh" type="button">刷新状态</button></div></header>
+<main><p class="notice">导航使用陆图 SDK 中 unstacking 地图的 A/B 命名点位。升降机器人 SDK 提供底盘实测反馈；双臂拆码垛任务仍未接入。</p>
+<section aria-labelledby="devices-title"><h2 id="devices-title">外部 SDK 连接</h2><div id="sdk-status" class="sdk-cards" aria-live="polite"></div></section>
+<section aria-labelledby="navigation-title"><div class="section-heading"><h2 id="navigation-title">unstacking · A/B 点导航</h2><span id="nav-state" class="badge">等待状态</span></div>
+<p id="nav-localization">正在读取地图定位状态…</p>
+<div id="nav-points" class="sdk-cards"></div>
+<div class="navigation-actions"><button data-nav-go="A" disabled>前往 A 点</button><button data-nav-go="B" disabled>前往 B 点</button><button id="nav-stop" class="stop" disabled>停止导航</button></div>
+<p id="nav-command" aria-live="polite">尚无导航命令</p><ul id="nav-reasons"></ul>
+<p id="nav-message" role="status" aria-live="polite"></p>
+<p class="small">到达与停车依据 SDK 实测反馈确认。关闭页面不等于停止导航；状态未知时请先明确停车。</p></section>
+<p id="message" role="status" aria-live="polite">正在读取后台状态…</p>
+<section aria-labelledby="status-title"><h2 id="status-title">单箱作业模块 · 默认装配</h2><div id="status" class="cards"></div></section>
+<div class="columns"><section><h2>单箱任务工序</h2><p id="job"></p><ol id="workflow"></ol></section>
+<section><h2>配置目录</h2><div id="configurations"></div></section></div>
+<section><h2>任务运行记录</h2><p>仅展示 outputs/robot 中已保存的结果。</p><div class="table-wrap"><table>
+<thead><tr><th>运行 ID</th><th>阶段</th><th>结果</th><th>说明</th></tr></thead><tbody id="runs"></tbody>
+</table></div></section></main><footer>Wheel Robot · 分层架构 v0.3.0</footer>
+<script type="module" src="/app.js"></script></body></html>

@@ -1,0 +1,13 @@
+# Historical example only. Do not use these dimensions as measured CAD parameters.
+object_geometry_validated: false
+rules:
+  width: 0.4
+  height: 0.22
+  inset: 0.007
+  below_top: 0.006
+  pitch_degrees: 50.0
+  heading: 1.5707963267948966
+  clearance: 0.06
+model:
+  mesh: assets/objects/crate/model.obj
+  colliders: assets/objects/crate/colliders.json
