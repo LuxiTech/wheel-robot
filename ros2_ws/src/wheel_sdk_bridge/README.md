@@ -1,6 +1,6 @@
 # wheel_sdk_bridge
 
-厂商协议的唯一适配边界。sdk.py 处理升降映射、关节反馈和租期；feedback.py 对齐实测状态；ros_state/rgbd_ros 是只读 ROS 入口。厂商 SDK 本体只读放在 device/，不导入或修改其源码。ROS main 需要板端 luxi_interfaces。
+厂商协议的唯一适配边界。sdk.py 处理升降映射、关节反馈和租期；feedback.py 对齐实测状态；ros_state/rgbd_ros 是只读 ROS 入口。厂商 SDK 运行在真机，本项目已删除 device/ 本地副本，通过公开接口接入，不导入厂商源码。ROS main 需要板端 luxi_interfaces。
 
 ## 文件与子目录
 

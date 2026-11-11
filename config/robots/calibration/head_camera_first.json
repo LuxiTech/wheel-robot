@@ -1,0 +1,71 @@
+{
+  "schema": "wheel_head_extrinsics_v1",
+  "selection": "first_user_selected",
+  "status": "candidate_not_accepted",
+  "deployable": false,
+  "parent_frame": "arm_origin",
+  "child_frame": "head_rgb_optical",
+  "units": "metres",
+  "T_origin_camera": [
+    [
+      0.007471566471998297,
+      -0.8776804152061455,
+      0.47918813054793263,
+      0.1195050507694131
+    ],
+    [
+      -0.9999354420301234,
+      -0.010660057806552565,
+      -0.0039338199733496,
+      -0.0745827765287332
+    ],
+    [
+      0.008560809919410522,
+      -0.47912780333761573,
+      -0.8777034012708363,
+      0.16990802987782666
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "reference_height_um": 170000,
+  "lift_axis_in_origin": [
+    0,
+    0,
+    1
+  ],
+  "height_range_um": [
+    -180000,
+    180000
+  ],
+  "camera": {
+    "id": "head_rgb",
+    "serials": [
+      "260922304036",
+      "261043062235"
+    ],
+    "optical_frames": [
+      "head_rgb_optical",
+      "head_rgb_color_optical"
+    ],
+    "optical_alias_evidence": "SDK realsense_camera captures RGB sensor; realsense_depth_backend selects the same serial RGB sensor and aligns to color. Driver serial must match at runtime. URDF camera frame is not an alias."
+  },
+  "source": {
+    "path": "/home/luxi/qingyue/biaoding/calibration_run_20261027/continuous_session/extrinsics_candidate_NOT_ACCEPTED.json",
+    "sha256": "c6dc6704c7ac4a61ac91c1dac748b1501a578a35f816deeafbaa3390237dad1c"
+  },
+  "base_T_origin_at_reference": null,
+  "ee_T_tcp": {
+    "left": null,
+    "right": null
+  },
+  "limitations": [
+    "Nominal vertical lift model; no extrapolation outside recorded range.",
+    "Independent errors are not a guarantee of 10 mm throughout the workspace.",
+    "base_link/base_footprint registration and physical TCP are not established."
+  ]
+}

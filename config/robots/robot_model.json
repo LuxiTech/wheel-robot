@@ -1,0 +1,9 @@
+{
+  "version": "claw1.4",
+  "urdf": "assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf",
+  "source": "config/robots/r680_lift_openarm_claw1.4.source.json",
+  "sdk_chains": "config/robots/calibration/sdk_arm_chains_claw14.json",
+  "gripper": "config/robots/calibration/gripper_claw14.json",
+  "contacts": "config/robots/calibration/claw14_contacts.json",
+  "mjcf": "outputs/unified-model/claw14-20261104/robot.xml"
+}

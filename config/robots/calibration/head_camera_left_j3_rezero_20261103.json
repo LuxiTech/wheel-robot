@@ -1,0 +1,230 @@
+{
+  "schema": "wheel_head_extrinsics_v1",
+  "selection": "left_j3_rezero_20261103_candidate",
+  "status": "candidate_group_cross_validated_at_one_height",
+  "deployable": false,
+  "parent_frame": "arm_origin",
+  "child_frame": "head_rgb_color_optical",
+  "units": "metres",
+  "T_origin_camera": [
+    [
+      0.010867836460030582,
+      -0.8953017200923876,
+      0.44532765480069847,
+      0.114648135246496
+    ],
+    [
+      -0.9991499972410334,
+      -0.027432956833456874,
+      -0.030768748635857462,
+      -0.05552807826248167
+    ],
+    [
+      0.03976396790966566,
+      -0.4446147353372195,
+      -0.8948388480486827,
+      0.15101561378101075
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "T_ee_board": [
+    [
+      -0.9982558483361803,
+      -0.021110307992383903,
+      -0.05513271405508141,
+      -0.1276679304438914
+    ],
+    [
+      -0.055401819092618196,
+      0.012381860038874122,
+      0.9983873636936749,
+      -0.045867808933341594
+    ],
+    [
+      -0.020393619194284392,
+      0.9997004773623168,
+      -0.01352981366146974,
+      -0.1519618412877939
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "reference_height_um": 179494,
+  "lift_axis_in_origin": [
+    0.0,
+    0.0,
+    1.0
+  ],
+  "height_range_um": [
+    -180000,
+    180000
+  ],
+  "measured_height_range_um": [
+    179494,
+    179494
+  ],
+  "lift_compensation": {
+    "formula": "R(h)=R0; t(h)=t0-[0,0,1]*(h_um-h0_um)*1e-6",
+    "source": "Recorded SDK cell.xml: lifter axis +Z, arms attached without rotation",
+    "fitted_from_this_bag": false,
+    "cross_height_validated": false,
+    "reason": "All valid lift feedback in this bag equals 179494 um; direction/scale unobservable",
+    "height_range_policy": "Configured hardware envelope only; accuracy evaluated at measured height only"
+  },
+  "camera": {
+    "id": "head_rgb",
+    "serials": [
+      "261043062235"
+    ],
+    "optical_frames": [
+      "head_rgb_color_optical"
+    ],
+    "intrinsics": {
+      "stamp_ns": 1793589350712364397,
+      "width": 640,
+      "height": 480,
+      "K": [
+        387.0193786621094,
+        0.0,
+        318.66900634765625,
+        0.0,
+        386.51220703125,
+        240.11669921875,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "D": [
+        -0.05630532652139664,
+        0.060888826847076416,
+        -0.00026793632423505187,
+        -0.00022309062478598207,
+        -0.019627751782536507
+      ],
+      "distortion_model": "realsense_2",
+      "frame": "head_rgb_color_optical"
+    }
+  },
+  "base_T_origin_at_reference": null,
+  "ee_T_tcp": {
+    "left": null,
+    "right": null
+  },
+  "limitations": [
+    "Single session, pose-group held-out validation, not independent physical metrology",
+    "Lift compensation is nominal and not evaluated across heights by this bag",
+    "Board-to-wrist mounting is estimated; board pose does not establish grasp TCP",
+    "Recording predates left J3 zero change; archived q[10] converted using measured before/after encoder change; all other recorded angles unchanged",
+    "Current independent capture crops both grippers; complete live gripper alignment is not accepted"
+  ],
+  "source": {
+    "path": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261103/left_j3/pairs.json",
+    "sha256": "525d9c0c9630cdd1382f2ab53f9cf265a7c663d8213de5f4c2fe890ba9d11930",
+    "bag": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261102/source/calibration_rezero_20261102_111542_56BKE5",
+    "board_pattern_inner_corners": [
+      11,
+      8
+    ],
+    "square_size_m": 0.01,
+    "board_reference": "Existing operator-confirmed pattern and square size",
+    "coordinate_rebase": {
+      "schema": "recorded_left_j3_zero_rebase_v1",
+      "previous_output": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261102/full_stationary",
+      "zero_record": "/home/luxi/qingyue/wheel-robot/config/robots/calibration/left_j3_rezero_20261103.json",
+      "zero_record_sha256": "920d691522d8fabcea8a4a04885ba173f03078467cd4e3f6b477090478ca3322",
+      "previous_frames_sha256": "631f2f05113c084fd5a68cb5c9bcf2740825435a9b6d2e342a24365f80aed1ed",
+      "sdk_index": 10,
+      "delta_rad": 0.0915541313801782,
+      "delta_deg": 5.245665325070462,
+      "formula": "q_new[10] = q_recorded[10] + (q_after_stamp - q_before_stamp)",
+      "other_joints": "unchanged; no correction applied to live feedback",
+      "stationary_quality_gates": "unchanged; constant shift preserves ranges and pose groups",
+      "raw_recording_modified": false,
+      "detection": "Reuse original image corners, PnP, CameraInfo, timestamps and lift readings",
+      "limitations": [
+        "Before/after zero readings are quantized; observed shift has encoder quantization uncertainty",
+        "Mechanical-reference residual is recorded separately; it is not added as another offset"
+      ]
+    },
+    "sdk_model_sha256": "cb4aad7ef1ce36137ccc07894186f06a60fa45251f3bb94da91aa4be6bc23ae5",
+    "live_sdk_ik_sha256": "d4cdb66950ac8a89bd9bf62b044e1670fc3647b6aa58b3de191cf76ef761bb56",
+    "urdf_sha256": "59586f1e1a616c62f8c9860c0912341bd23354c479bf5a716d449b5c8ad042b7",
+    "zero_epoch_record": "config/robots/calibration/left_j3_rezero_20261103.json"
+  },
+  "validation_summary": {
+    "accepted_stationary_frames": 438,
+    "pose_groups": 22,
+    "in_sample": {
+      "translation_mm": {
+        "count": 438,
+        "rms": 4.291962507363873,
+        "median": 4.203884474034129,
+        "p95": 6.37131419994798,
+        "max": 7.0411859563071335
+      },
+      "rotation_deg": {
+        "count": 438,
+        "rms": 1.2872882812477895,
+        "median": 1.1041874538843375,
+        "p95": 2.0124920787063356,
+        "max": 2.562870350083894
+      },
+      "board_points_rms_mm": {
+        "count": 438,
+        "rms": 3.829521282673074,
+        "median": 3.849662778821167,
+        "p95": 5.946961385349314,
+        "max": 7.221774335268316
+      },
+      "reprojection_rms_px": {
+        "count": 438,
+        "rms": 1.843491073816448,
+        "median": 1.2933475906488918,
+        "p95": 3.195634542710106,
+        "max": 9.164676621955254
+      },
+      "translation_below_10mm": 438,
+      "pose_group_count": 22
+    },
+    "pose_group_cross_validation": {
+      "translation_mm": {
+        "count": 438,
+        "rms": 5.279868978416334,
+        "median": 4.139534747941429,
+        "p95": 8.545721858989117,
+        "max": 12.388701537209698
+      },
+      "rotation_deg": {
+        "count": 438,
+        "rms": 1.5179982641315157,
+        "median": 1.3734757172447831,
+        "p95": 2.3418470077360207,
+        "max": 3.021309338412548
+      },
+      "board_points_rms_mm": {
+        "count": 438,
+        "rms": 4.7261133467215695,
+        "median": 4.00940348482928,
+        "p95": 7.223237964961447,
+        "max": 12.57621954939696
+      },
+      "reprojection_rms_px": {
+        "count": 438,
+        "rms": 2.5311299694910927,
+        "median": 2.109226974427055,
+        "p95": 4.217196981966751,
+        "max": 14.6042525085168
+      }
+    },
+    "reference": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261103/left_j3/calibration_result.json"
+  }
+}

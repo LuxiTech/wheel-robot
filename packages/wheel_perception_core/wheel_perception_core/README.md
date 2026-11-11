@@ -10,6 +10,7 @@
 | `association.py` | Task-layout ROI association, never simulator instance labels or live object poses. |
 | `backends.py` | Lazy adapters to upstream model APIs. No simulated predictions on failure. |
 | `geometry.py` | Model input geometry and deterministic, object-relative grasp rules. |
-| `pipeline.py` | Observation -> selected instance -> pose -> URDF transform -> pair targets. |
+| `pipeline.py` | Observation -> selected instance -> pose -> configured coordinate transform -> pair targets. |
+| `extrinsics.py` | 第一套头部外参、相对升降补偿、相机来源检查及 SDK 坐标转换；不发送运动指令。 |
 | `rgbd.py` | Strict reader for SDK ba0c732 atomic RGB-D, plus lossless replay storage. |
 | `visualization.py` | Diagnostic overlays. All projections use the saved optical camera frame. |

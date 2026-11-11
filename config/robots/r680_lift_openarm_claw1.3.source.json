@@ -1,0 +1,10 @@
+{
+  "source_archive": "/home/luxi/下载/r680_lift_openarm_claw1.3.zip",
+  "archive_sha256": "88b7842f2e6fe72000f86bcd7776b67dde68d8abbbd09cbd2d87bf1125fdf785",
+  "urdf": "assets/robots/r680_lift_openarm_claw1.3/r680_lift_openarm_robot_viewer.urdf",
+  "urdf_sha256": "59586f1e1a616c62f8c9860c0912341bd23354c479bf5a716d449b5c8ad042b7",
+  "geometry_modified": false,
+  "arm_definition": "OpenArm2.0 per supplied README, custom gripper exact SW poses",
+  "direct_joint_mapping_model_verified": true,
+  "physical_gripper_alignment_accepted": false
+}

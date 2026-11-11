@@ -1,3 +1,11 @@
+line-length = 100
+indent-width = 4
+
+[format]
+indent-style = "space"
+quote-style = "double"
+
 [lint]
-# Isaac extension imports must follow SimulationApp initialization.
+# Source-tree CLI imports must follow path setup; Isaac imports follow SimulationApp.
+select = ["E4", "E7", "E9", "F", "I"]
 ignore = ["E402"]

@@ -2,19 +2,25 @@
 
 This is a commissioning model, not a claim that every real crate is identical.
 """
+
 import argparse
 import json
 from pathlib import Path
+
 import trimesh
-p=argparse.ArgumentParser()
-p.add_argument('--colliders',default='assets/objects/crate/colliders.json')
-p.add_argument('--output',default='assets/objects/crate/model.obj')
-a=p.parse_args()
-parts=[]
+
+p = argparse.ArgumentParser()
+p.add_argument("--colliders", default="assets/objects/crate/colliders.json")
+p.add_argument("--output", default="assets/objects/crate/model.obj")
+a = p.parse_args()
+parts = []
 for item in json.loads(Path(a.colliders).read_text()):
-    part=trimesh.creation.box(extents=item['size']);part.apply_translation(item['position']);parts.append(part)
-out=Path(a.output)
-if out.exists(): raise SystemExit('Output already exists; select a new filename')
-out.parent.mkdir(parents=True,exist_ok=True)
+    part = trimesh.creation.box(extents=item["size"])
+    part.apply_translation(item["position"])
+    parts.append(part)
+out = Path(a.output)
+if out.exists():
+    raise SystemExit("Output already exists; select a new filename")
+out.parent.mkdir(parents=True, exist_ok=True)
 trimesh.util.concatenate(parts).export(out)
 print(out)

@@ -1,13 +1,17 @@
 # wheel_description
 
-机器人描述资源包。urdf/meshes 用于已验证机器人资源；当前真实 URDF 缺失，目录只保留说明，不生成仿真替代模型。
+机器人描述资源包。用户提供的模型已导入仓库根目录
+`assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf`，网格位于其同目录 `resources/`。
+CMake 在模型存在时分别安装1.3和1.4到`share/wheel_description/urdf/`下各自同名目录，
+旧模型保留，保持相对网格路径，不额外维护源码副本。
+launch 仍要求显式传入模型路径。本次仅导入 CAD 模型，未完成 SDK 坐标映射或真机运动验证。
 
 ## 文件与子目录
 
 | 路径 | 功能 |
 | --- | --- |
-| [meshes/](meshes/README.md) | 放置 URDF 引用的机器人视觉/碰撞网格。当前未提供资产。单位与缩放必须与 URDF 一致；大资产按部署流程提供。 |
-| [urdf/](urdf/README.md) | 放置真实机器人 URDF/Xacro，并明确相机光学帧、升降、双臂、TCP 及关节限位。当前没有已验证文件；launch 要求调用者显式提供 URDF。 |
+| [meshes/](meshes/README.md) | 预留目录；本次网格随外部模型的 resources/ 一起安装。 |
+| [urdf/](urdf/README.md) | 预留目录；导入模型在构建时从 assets 安装。launch 要求显式提供 URDF。 |
 | `CMakeLists.txt` | ROS 构建、接口生成或资源安装规则。 |
 | `package.xml` | ROS 包名、依赖与构建类型。 |
 

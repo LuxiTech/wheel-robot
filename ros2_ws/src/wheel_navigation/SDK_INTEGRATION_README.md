@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | SDK 名称 | lucid-atlas | lift_robot_ros2 |
 | 源码仓库 | https://gitee.com/fxx360724/lucid-atlas/tree/main/ | https://gitee.com/fxx360724/lift_robot_ros2 |
-| wheel-robot 内只读副本 | `/home/luxi/qingyue/wheel-robot/device/lucid-atlas` | `/home/luxi/qingyue/wheel-robot/device/lift_robot_ros2` |
+| wheel-robot 内本地副本 | 已于2026-10-30删除；运行不依赖副本 | 已于2026-10-30删除；运行不依赖副本 |
 | 设备地址 | `192.168.4.118` | `192.168.0.245` |
 | SSH | `ssh lucy@192.168.4.118` | `ssh sunrise@192.168.0.245` |
 | 实机 SDK 目录 | `/home/lucy/Project/lucy-atlas-agentos/lucid-atlas` | `/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2` |

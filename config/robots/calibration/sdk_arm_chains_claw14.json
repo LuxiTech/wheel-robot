@@ -1,0 +1,330 @@
+{
+  "schema": "wheel_sdk_chains_v1",
+  "root_frame": "arm_origin",
+  "source": {
+    "path": "device/openarm/openarm_mujoco/v2/openarm_claw14.xml",
+    "sha256": "77cdaabc78e8f23c47f1111c112ee3d47565c4dd6d95bb3dd60d015be647a78b",
+    "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+    "fk_reference": "Project/arm_motion/include/luxi/ik.hpp luxi::Ik::sync/fk",
+    "legacy_left_base_registration": "config/robots/calibration/sdk_arm_chains.json"
+  },
+  "description": "Full claw1.4 URDF arm chains expressed in legacy arm_origin through left-base registration; unchanged arm joint values and geometry; URDF right shoulder preserved.",
+  "chains": {
+    "left": [
+      {
+        "name": "openarm_left_base_link",
+        "translation_m": [
+          1.3877787807814457e-17,
+          0.031000000000000007,
+          0.0
+        ]
+      },
+      {
+        "name": "openarm_left_link1",
+        "translation_m": [
+          0.0,
+          0.0625,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_left_joint1",
+          "axis": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "range_rad": [
+            -3.4907,
+            1.3963
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_link2",
+        "translation_m": [
+          0.0,
+          0.06,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_left_joint2",
+          "axis": [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          "range_rad": [
+            -3.3161,
+            0.17453
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_link3",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.06625
+        ],
+        "joint": {
+          "name": "openarm_left_joint3",
+          "axis": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_link4",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.15375
+        ],
+        "joint": {
+          "name": "openarm_left_joint4",
+          "axis": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "range_rad": [
+            0.0,
+            2.4435
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_link5",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.0955
+        ],
+        "joint": {
+          "name": "openarm_left_joint5",
+          "axis": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_link6",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.1205
+        ],
+        "joint": {
+          "name": "openarm_left_joint6",
+          "axis": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "range_rad": [
+            -0.7854,
+            0.7854
+          ]
+        }
+      },
+      {
+        "name": "openarm_left_ee_base_link",
+        "translation_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_left_joint7",
+          "axis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "left_ee_control_point",
+        "translation_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ],
+    "right": [
+      {
+        "name": "openarm_right_base_link",
+        "translation_m": [
+          1.916884151409448e-10,
+          -0.1510000005833337,
+          0.0
+        ]
+      },
+      {
+        "name": "openarm_right_link1",
+        "translation_m": [
+          0.0,
+          -0.0625,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_right_joint1",
+          "axis": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "range_rad": [
+            -1.3963,
+            3.4907
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_link2",
+        "translation_m": [
+          0.0,
+          -0.06,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_right_joint2",
+          "axis": [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          "range_rad": [
+            -0.17453,
+            3.3161
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_link3",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.06625
+        ],
+        "joint": {
+          "name": "openarm_right_joint3",
+          "axis": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_link4",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.15375
+        ],
+        "joint": {
+          "name": "openarm_right_joint4",
+          "axis": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "range_rad": [
+            0.0,
+            2.4435
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_link5",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.0955
+        ],
+        "joint": {
+          "name": "openarm_right_joint5",
+          "axis": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_link6",
+        "translation_m": [
+          0.0,
+          0.0,
+          -0.1205
+        ],
+        "joint": {
+          "name": "openarm_right_joint6",
+          "axis": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "range_rad": [
+            -0.7854,
+            0.7854
+          ]
+        }
+      },
+      {
+        "name": "openarm_right_ee_base_link",
+        "translation_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "joint": {
+          "name": "openarm_right_joint7",
+          "axis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "range_rad": [
+            -1.5708,
+            1.5708
+          ]
+        }
+      },
+      {
+        "name": "right_ee_control_point",
+        "translation_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  }
+}

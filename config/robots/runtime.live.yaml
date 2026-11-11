@@ -1,8 +1,8 @@
 # Read-only commissioning. Geometry/rules are placeholders until measured and validated.
 sdk_commit: ba0c7320cd1499995cfc614e83c0c3963343e15a
-base_url: http://192.168.0.245:18030
+base_url: http://192.168.2.199:18030
 camera: head_rgb
-urdf: assets/robots/r680_lift_openarm/r680_lift_openarm_sim.urdf
+urdf: assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf
 base_frame: base_footprint
 tcp:
   left:
@@ -25,3 +25,9 @@ model:
   threshold: 0.15
 camera_extrinsics_validated: false
 object_geometry_validated: false
+
+# Head vision output uses calibration SDK coordinates; planning base_frame is unchanged.
+coordinate_conversion:
+  output_frame: arm_origin
+  calibration: config/robots/calibration/head_camera_j4_rezero_20261104.json
+  sdk_chains: config/robots/calibration/sdk_arm_chains_claw14.json

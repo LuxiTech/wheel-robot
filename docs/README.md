@@ -11,3 +11,4 @@
 | `LIVE_VISION.md` | 本目录配置、资源或工具文件。 |
 | `MIGRATION.md` | 本目录配置、资源或工具文件。 |
 | `VALIDATION.md` | 本目录配置、资源或工具文件。 |
+| `VISUAL_GRASP_DEVELOPMENT.md` | 视觉抓取开发必读：真机 SDK、用户资源、URDF、外参与实测证据的核查要求。 |

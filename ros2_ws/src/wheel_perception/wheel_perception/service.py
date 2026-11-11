@@ -1,4 +1,5 @@
 """Adapt the retained RGB-D/keypoint pipeline to the task interface."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,8 +7,8 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Protocol
 
-from wheel_task_core.contracts import GraspObservation
 from wheel_perception_core.rgbd import Observation
+from wheel_task_core.contracts import GraspObservation
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,7 @@ class SynchronizedCapture:
     joints: dict
     captured_at: float
     box: object = None
+    transform_context: object = None
 
 
 class CaptureSource(Protocol):
@@ -37,7 +39,8 @@ class PipelineVision:
         # Inference backends retain tracking state: serialize worker access even
         # if the awaiting task times out. Late results never execute a command.
         from concurrent.futures import ThreadPoolExecutor
-        self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='vision')
+
+        self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="vision")
 
     @property
     def ready(self):
@@ -45,13 +48,21 @@ class PipelineVision:
 
     async def observe(self, target_id):
         capture = await self.source.capture(target_id)
+        options = dict(target_id=target_id, box=capture.box)
+        if capture.transform_context is not None:
+            options["transform_context"] = capture.transform_context
         result = await asyncio.get_running_loop().run_in_executor(
-            self.worker, partial(self.pipeline.process, capture.observation,
-                                 capture.joints, target_id=target_id, box=capture.box))
+            self.worker,
+            partial(self.pipeline.process, capture.observation, capture.joints, **options),
+        )
         return GraspObservation(
-            result['target_id'], result['pair_id'], result['frame_id'],
-            capture.captured_at, bool(result['quality']['accepted']),
-            result['diagnostic_only'], result,
+            result["target_id"],
+            result["pair_id"],
+            result["frame_id"],
+            capture.captured_at,
+            bool(result["quality"]["accepted"]),
+            result["diagnostic_only"],
+            result,
         )
 
     def close(self):
@@ -62,4 +73,4 @@ class UnconfiguredVision:
     ready = False
 
     async def observe(self, target_id):
-        raise NotImplementedError('Calibrated RGB-D / timestamped joint source is not connected')
+        raise NotImplementedError("Calibrated RGB-D / timestamped joint source is not connected")

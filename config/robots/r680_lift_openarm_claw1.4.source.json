@@ -1,0 +1,15 @@
+{
+  "source_archive": "/home/luxi/下载/r680_lift_openarm_claw1.4.zip",
+  "archive_sha256": "3a87af97d4991dd1d21760ed7fa2bcd0d96634f8a5813588bd9c17e5aa37424e",
+  "urdf": "assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf",
+  "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+  "geometry_modified": false,
+  "previous_model_source": "config/robots/r680_lift_openarm_claw1.3.source.json",
+  "change_scope": "Only wrist camera and bracket geometry/poses change from 1.3; arm, gripper, lift joints unchanged",
+  "physical_gripper_alignment_accepted": false,
+  "direct_joint_mapping_model_verified": true,
+  "xml": "outputs/unified-model/claw14-20261104/robot.xml",
+  "xml_sha256": "77cdaabc78e8f23c47f1111c112ee3d47565c4dd6d95bb3dd60d015be647a78b",
+  "sdk_model_path": "device/openarm/openarm_mujoco/v2/openarm_claw14.xml",
+  "deployment_record": "outputs/unified-model/claw14-20261104/deployment.json"
+}

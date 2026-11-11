@@ -1,0 +1,67 @@
+{
+  "record_type": "hardware_zero_epoch_record_not_a_runtime_offset",
+  "created_utc": "2026-11-04T08:25:36.030463+00:00",
+  "scope": "left J4 and right J4 only",
+  "selected_zero_writes": 2,
+  "other_joint_zero_writes": 0,
+  "joints": [
+    {
+      "joint": "openarm_right_joint4",
+      "side": "right",
+      "sdk_index": 3,
+      "bus": "luxi_right",
+      "motor_id": 4,
+      "design_zero_in_old_sdk_rad": -0.012541008621347327,
+      "old_sdk_rad_at_hardware_stamp": -0.012397955291065799,
+      "new_sdk_rad_after_stamp": -0.0001907377737087046,
+      "observed_feedback_coordinate_shift_rad": 0.012207217517357094,
+      "residual_from_measured_design_zero_deg": 0.008196352070422597,
+      "pose_mean_difference_deg": 0.11474892898591638
+    },
+    {
+      "joint": "openarm_left_joint4",
+      "side": "left",
+      "sdk_index": 11,
+      "bus": "luxi_left",
+      "motor_id": 4,
+      "design_zero_in_old_sdk_rad": 0.011921110856794037,
+      "old_sdk_rad_at_hardware_stamp": 0.010490577553978753,
+      "new_sdk_rad_after_stamp": -0.0001907377737087046,
+      "observed_feedback_coordinate_shift_rad": -0.010681315327687457,
+      "residual_from_measured_design_zero_deg": -0.08196352070422597,
+      "pose_mean_difference_deg": 0.010928469427230136
+    }
+  ],
+  "reference": "Official J4 negative mechanical near-stop equals URDF zero; remeasured after moving J1 forward to clear chassis support",
+  "reference_measurement": "outputs/grasp/j4-rezero-20261104/20261104T074527.388322Z/position_for_write/reference_measurement.json",
+  "initial_right_minus_1_508deg_reference_superseded": true,
+  "urdf_path": "assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf",
+  "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+  "urdf_changed": false,
+  "sdk_pose_targets_rebased": true,
+  "sdk_software_offsets_changed": false,
+  "sdk_permanent_limits_changed": false,
+  "sdk_gains_changed": false,
+  "selected_camera_extrinsics": "config/robots/calibration/head_camera_fixed_height_1_20261104.json",
+  "camera_extrinsics_sha256": "d5a86e4dcb8c060d5db632a585c60a77f60358d92a6fe17f63e8cb1a876ec4fa",
+  "camera_extrinsics_status": "Unchanged; estimated before this J4 zero epoch. Reconcile affected recorded joint angles and validate before using overlays as physical accuracy evidence.",
+  "runtime_software_offset_applied": false,
+  "final_control": {
+    "service": "luxi-openarm-j4-postzero-20261104T074527.service",
+    "state": "active",
+    "arms_enabled": true,
+    "J4_target_rad": 0.0,
+    "session_J4_feedback_lower_rad": -0.003,
+    "original_monitor_service_state": "failed",
+    "original_monitor_restored": false,
+    "reason_for_session_config": "Native SDK rejects negative half-count zero feedback against exact J4 lower bound 0; temporary zero-neighborhood allowance, no further zero writes"
+  },
+  "limitations": [
+    "Mechanical stop geometry assumed unchanged; no independent angular metrology",
+    "Residual is relative to the mechanically inferred zero; not guaranteed absolute accuracy",
+    "No motor power-cycle persistence test performed",
+    "Formal SDK zero-boundary feedback handling is not yet fixed; currently using session-only holding config"
+  ],
+  "logs": "outputs/grasp/j4-rezero-20261104/20261104T074527.388322Z",
+  "lift_commands_sent": false
+}

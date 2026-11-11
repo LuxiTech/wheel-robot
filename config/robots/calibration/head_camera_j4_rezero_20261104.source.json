@@ -1,0 +1,11 @@
+{
+  "operation": "refit_from_preserved_fixed_height1_recording_after_J4_hardware_zero",
+  "created_utc": "2026-11-04T08:38:04.334392+00:00",
+  "previous_calibration": "config/robots/calibration/head_camera_fixed_height_1_20261104.json",
+  "zero_epoch_record": "config/robots/calibration/j4_rezero_20261104.json",
+  "project_path": "config/robots/calibration/head_camera_j4_rezero_20261104.json",
+  "project_sha256": "9bf2788becf035c520ba233fb1e9c752410c162067a5e50588be6714c884195d",
+  "refit_output": "outputs/calibration-rezero/20261104/left-right-j4",
+  "raw_recording_modified": false,
+  "physical_accuracy_accepted": false
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Read-only ROS joint feedback for wheel-robot
+After=network.target
+
+[Service]
+Type=simple
+Environment=ROS_DOMAIN_ID=0
+Environment=ROS_LOCALHOST_ONLY=1
+ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/setup.bash && exec /usr/bin/python3 /home/sunrise/.local/lib/wheel-robot/joint_feedback_server.py --host 192.168.2.199 --port 18032'
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

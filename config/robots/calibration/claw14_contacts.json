@@ -1,0 +1,204 @@
+{
+  "schema": "wheel_claw13_contact_candidates_v1",
+  "executable": false,
+  "hardware_validated": false,
+  "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+  "sides": {
+    "left": {
+      "contacts": [
+        {
+          "link": "openarm_left_ee_link1",
+          "mesh_sha256": "415d034d62876fec838216db3c173e4f9352b179c6269fd252365e4b208e6f4e",
+          "facet_index": 2685,
+          "area_mm2": 699.9999314546424,
+          "point_in_finger_m": [
+            -0.096,
+            0.0298600010573864,
+            0.0565
+          ],
+          "point_in_wrist_at_max_open_m": [
+            -0.096,
+            0.021254213195503573,
+            -0.1646071264997171
+          ],
+          "inward_normal_in_wrist": [
+            0.0,
+            -0.9998194070672918,
+            -0.019004032509159458
+          ],
+          "surface_distance_m": 1.3877787807814457e-17
+        },
+        {
+          "link": "openarm_left_ee_link2",
+          "mesh_sha256": "7892a51be8f14676fb9f212b11924353a9655031310678f9ef7be20e874121ea",
+          "facet_index": 1912,
+          "area_mm2": 848.5063592530706,
+          "point_in_finger_m": [
+            -0.096,
+            -0.005859999917447567,
+            0.0565
+          ],
+          "point_in_wrist_at_max_open_m": [
+            -0.096,
+            -0.04101453843131653,
+            -0.16579069730077015
+          ],
+          "inward_normal_in_wrist": [
+            0.0,
+            0.9998194070672918,
+            0.019004032509159458
+          ],
+          "surface_distance_m": 0.0
+        }
+      ],
+      "finger_displacement_limits_m": [
+        0.012860000208020216,
+        0.044
+      ],
+      "opening_formula": {
+        "variable": "URDF single-finger displacement q in metres, NOT motor radians",
+        "width_m_equals": "2*q + offset_m",
+        "offset_m": -0.02572000105167216,
+        "width_at_limits_mm": [
+          -6.356317278077839e-07,
+          62.27999894832784
+        ]
+      },
+      "contact_midpoint_in_wrist_m": [
+        -0.096,
+        -0.009880162617906477,
+        -0.1651989119002436
+      ],
+      "midpoint_orientation": null,
+      "opening_sweep_max_error_m": 2.0816681711721685e-17,
+      "carriage_T_sdk_origin_if_this_base_corresponds": [
+        [
+          0.9999969583359386,
+          -0.00246643849930451,
+          0.0,
+          0.11659917659347842
+        ],
+        [
+          0.00246643849930451,
+          0.9999969583359386,
+          0.0,
+          0.0599602842915859
+        ],
+        [
+          0.0,
+          0.0,
+          0.9999999999999999,
+          0.376813224
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    "right": {
+      "contacts": [
+        {
+          "link": "openarm_right_ee_link1",
+          "mesh_sha256": "400a703225d87b4ee2d11bbc3879343722f374113a2a5ea1d0b3bb84ce134f34",
+          "facet_index": 868,
+          "area_mm2": 848.5064087820626,
+          "point_in_finger_m": [
+            -0.096,
+            0.005859999917447567,
+            0.0565
+          ],
+          "point_in_wrist_at_max_open_m": [
+            -0.09599999599999999,
+            0.04667682819882131,
+            -0.164312379730645
+          ],
+          "inward_normal_in_wrist": [
+            0.0,
+            -0.9998799612173611,
+            -0.015493971600860914
+          ],
+          "surface_distance_m": 5.419449386414209e-17
+        },
+        {
+          "link": "openarm_right_ee_link2",
+          "mesh_sha256": "4fa054924c036fdb47fc6154d1fb35d1aa81e30735e84353ea02d39ea2b6c3af",
+          "facet_index": 2736,
+          "area_mm2": 699.9997824430615,
+          "point_in_finger_m": [
+            -0.096,
+            -0.0298600010573864,
+            0.0565
+          ],
+          "point_in_wrist_at_max_open_m": [
+            -0.09599999599999999,
+            -0.01559569419890537,
+            -0.16527734455083398
+          ],
+          "inward_normal_in_wrist": [
+            0.0,
+            0.9998799612173611,
+            0.015493971600860914
+          ],
+          "surface_distance_m": 0.0
+        }
+      ],
+      "finger_displacement_limits_m": [
+        0.012860000208020216,
+        0.044
+      ],
+      "opening_formula": {
+        "variable": "URDF single-finger displacement q in metres, NOT motor radians",
+        "width_m_equals": "2*q + offset_m",
+        "offset_m": -0.02572000158253395,
+        "width_at_limits_mm": [
+          -1.1664935198330006e-06,
+          62.27999841746605
+        ]
+      },
+      "contact_midpoint_in_wrist_m": [
+        -0.09599999599999999,
+        0.01554056699995797,
+        -0.1647948621407395
+      ],
+      "midpoint_orientation": null,
+      "opening_sweep_max_error_m": 1.7780915628762273e-17,
+      "carriage_T_sdk_origin_if_this_base_corresponds": [
+        [
+          0.9999969583359386,
+          -0.00246643849930451,
+          0.0,
+          0.11659917659347843
+        ],
+        [
+          0.00246643849930451,
+          0.9999969583359386,
+          0.0,
+          0.05996028429158588
+        ],
+        [
+          0.0,
+          0.0,
+          0.9999999999999999,
+          0.376813224
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    }
+  },
+  "contact_definition": "Opposing distal planar faces: long-finger lip and short-finger flat. CAD candidate only.",
+  "motor_angle_to_width": null,
+  "bilateral_registration": {
+    "translation_disagreement_mm": 1.962615573354719e-14,
+    "rotation_disagreement_deg": 1.2424041724466862e-17,
+    "accepted": false,
+    "interpretation": "Left-base and right-base correspondence imply different common transforms. Do not apply one arm registration to both arms."
+  }
+}

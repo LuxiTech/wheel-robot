@@ -1,0 +1,7 @@
+# Dedicated Python 3.12 calibration environment; ROS is not required for offline reads.
+numpy>=1.26
+scipy>=1.11
+opencv-python-headless>=4.8,<5
+rosbags>=0.10
+pyrealsense2>=2.55
+matplotlib>=3.8

@@ -4,6 +4,7 @@ Adapters return only after measured completion, not after accepting a request.
 Observation ages use this process's monotonic clock; remote clocks must be
 translated/validated by the receiving adapter before constructing observations.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,10 +19,14 @@ class TransferJob:
     destination_slot: str
 
     def __post_init__(self):
-        for value in (self.target_id, self.source_station,
-                      self.destination_station, self.destination_slot):
+        for value in (
+            self.target_id,
+            self.source_station,
+            self.destination_station,
+            self.destination_slot,
+        ):
             if not isinstance(value, str) or not value.strip():
-                raise ValueError('Job identifiers must be nonempty strings')
+                raise ValueError("Job identifiers must be nonempty strings")
 
 
 @dataclass(frozen=True)
@@ -76,6 +81,7 @@ class Motion(Protocol):
     async def place(self, slot: str) -> None:
         """Confirm support, release, verify release, and withdraw the hands."""
         ...
+
     async def hold(self) -> None:
         """Stop trajectories and retain load; never implicitly release/park."""
         ...

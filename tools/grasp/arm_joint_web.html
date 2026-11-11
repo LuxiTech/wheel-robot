@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="panel-token" content="__TOKEN__">
+<title>双臂关节控制</title>
+<style>
+  :root { font-family: system-ui, sans-serif; color: #172b43; background: #eef3f8; }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; padding: 28px 20px; max-width: 1380px; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  h2 { margin: 0; font-size: 21px; }
+  p { line-height: 1.65; }
+  .muted { color: #52647a; }
+  .toolbar, .arm { background: white; border: 1px solid #d9e2ed; border-radius: 12px; padding: 20px; }
+  .toolbar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 20px 0; }
+  .arms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .arm-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; white-space: nowrap; }
+  th, td { text-align: left; padding: 12px 7px; border-bottom: 1px solid #e5ebf2; font-size: 14px; }
+  th { color: #52647a; font-weight: 500; }
+  input[type=number] { width: 108px; padding: 9px; border: 1px solid #a8b9cd; border-radius: 6px; font-size: 15px; }
+  input:invalid { border-color: #b83232; }
+  button { cursor: pointer; padding: 10px 14px; border: 1px solid #bbcada; border-radius: 7px; background: white; color: #172b43; font-size: 14px; }
+  button.primary { background: #125ca3; border-color: #125ca3; color: white; }
+  button.stop { background: #b92d35; border-color: #b92d35; color: white; margin-left: auto; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .mono, input[type=number] { font-variant-numeric: tabular-nums; }
+  #status { font-weight: 600; }
+  #message { white-space: pre-wrap; min-height: 24px; line-height: 1.6; }
+  .error { color: #af242c; }
+  .note { background: #fff8e9; border-left: 3px solid #d79a28; padding: 12px 16px; }
+  @media(max-width: 1000px) { .arms { grid-template-columns: 1fr; } }
+</style>
+<h1>双臂关节控制 <small class="muted">rad</small></h1>
+<p class="muted">左右各 8 个电机：J1～J7 为机械臂关节，J8 为夹爪电机角度。输入目标弧度后点击发送。</p>
+<div id="status" role="status">正在读取真机反馈…</div>
+<div class="toolbar">
+  <label>速度 rad/s <input id="speed" type="number" value="0.02" min="0.02" max="0.2" step="0.01"></label>
+  <label><input id="enable" type="checkbox"> 失能时允许 SDK 使能并执行</label>
+  <button id="copy-all" disabled>用实测角度填入双臂</button>
+  <button id="send-all" class="primary motion" disabled>发送双臂 16 轴</button>
+  <button id="stop" class="stop" disabled>停止本页面运动</button>
+</div>
+<div class="arms" id="arms"></div>
+<p class="note">J8 使用电机弧度，不是夹指位移。左夹爪已确认负向增大开口，完整开口尚未验收。输入范围直接读取 SDK 限位。</p>
+<p class="muted">发送单关节或单臂时，其余关节沿用 SDK 保持目标；失能时沿用提交时的实测位置。SDK 会接收完整 16 轴目标。页面关闭后运动仍会继续；停止按钮请求 SDK 停止并保持，不是硬件急停。</p>
+<div id="message" role="status" aria-live="polite"></div>
+<script>
+  'use strict';
+  const token = document.querySelector('meta[name=panel-token]').content;
+  const $ = id => document.getElementById(id);
+  let state = null;
+  let valid = false;
+  let sending = false;
+  let lastShownMotion = '';
+  const initialized = new Set();
+  const inputs = [];
+  const phases = {idle:'空闲', preparing:'准备中', moving:'运动中', ready:'目标执行结束', stopped:'已停止', fault:'故障'};
+  const names = index => `${index < 8 ? '右' : '左'} J${index % 8 + 1}`;
+  const indexes = side => Array.from({length:8}, (_, i) => i + (side === 'left' ? 8 : 0));
+  function message(text, error = false) {
+    $('message').textContent = text;
+    $('message').className = error ? 'error' : '';
+  }
+  function updateButtons() {
+    const busy = state && (state.pending_id || ['preparing','moving','fault'].includes(state.joint_control.phase));
+    const blocked = !valid || sending || busy || state?.fault_latched !== false || (!state?.enabled && !$('enable').checked);
+    document.querySelectorAll('.motion').forEach(button => button.disabled = !!blocked);
+    $('stop').disabled = !valid || sending || !state?.can_stop;
+    $('copy-all').disabled = !valid || sending;
+    document.querySelectorAll('.copy').forEach(button => button.disabled = !valid || sending);
+  }
+  function copyCurrent(selected) {
+    if (!valid) return;
+    selected.forEach(index => inputs[index].value = String(state.positions_rad[index]));
+  }
+  for (const [side, label] of [['left','左臂'], ['right','右臂']]) {
+    const section = document.createElement('section');
+    section.className = 'arm';
+    section.innerHTML = `<div class="arm-head"><h2>${label}</h2><button class="copy" disabled>填入实测角度</button></div><div class="table-wrap"><table><thead><tr><th>关节</th><th>实测 rad</th><th>目标 rad</th><th>SDK 限位 rad</th><th></th></tr></thead><tbody></tbody></table></div><button class="primary motion arm-send" disabled>发送${label} 8 轴</button>`;
+    for (const index of indexes(side)) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>J${index % 8 + 1}${index % 8 === 7 ? ' 夹爪' : ''}</td><td class="mono" id="actual-${index}">—</td><td><input type="number" step="any" aria-label="${names(index)} 目标弧度" required></td><td class="mono" id="limits-${index}">—</td><td><button class="motion" disabled>发送</button></td>`;
+      inputs[index] = row.querySelector('input');
+      row.querySelector('button').onclick = () => sendMove([index]);
+      section.querySelector('tbody').append(row);
+    }
+    section.querySelector('.copy').onclick = () => copyCurrent(indexes(side));
+    section.querySelector('.arm-send').onclick = () => sendMove(indexes(side));
+    $('arms').append(section);
+  }
+  async function refresh() {
+    try {
+      const response = await fetch('/api/state', {cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '反馈不可用');
+      state = data;
+      valid = true;
+      const joint = data.joint_control;
+      $('status').textContent = `真机已连接 · ${data.enabled ? '已使能' : '已失能'} · ${phases[joint.phase] || joint.phase}${joint.reason ? ' · ' + joint.reason : ''}`;
+      $('status').className = '';
+      $('speed').min = Math.max(0.02, joint.min_speed_rad_s);
+      $('speed').max = Math.min(0.2, joint.max_speed_rad_s);
+      for (let index = 0; index < 16; index++) {
+        $('actual-' + index).textContent = data.positions_rad[index].toFixed(5);
+        $('limits-' + index).textContent = `${joint.lower[index].toFixed(4)} ～ ${joint.upper[index].toFixed(4)}`;
+        inputs[index].min = joint.lower[index];
+        inputs[index].max = joint.upper[index];
+        if (!initialized.has(index)) {
+          inputs[index].value = String(data.positions_rad[index]);
+          initialized.add(index);
+        }
+      }
+      if (data.last_motion && JSON.stringify(data.last_motion) !== lastShownMotion) {
+        lastShownMotion = JSON.stringify(data.last_motion);
+        const motion = data.last_motion;
+        if (motion.phase === 'unconfirmed_or_superseded') {
+          message('运动回执未确认或已被其他控制者接管。不会自动重发；请核对 SDK 页面。', true);
+        } else if (motion.completed) {
+          message(`已实测到位，最大误差 ${motion.max_error_rad.toFixed(5)} rad`);
+        } else if (['fault','stopped'].includes(motion.phase)) {
+          message(`${phases[motion.phase]}：${motion.reason}`, motion.phase === 'fault');
+        }
+      }
+    } catch (error) {
+      valid = false;
+      $('status').textContent = '反馈不可用：' + error.message;
+      $('status').className = 'error';
+    }
+    updateButtons();
+  }
+  function actionId() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('');
+  }
+  async function post(path, body) {
+    sending = true;
+    updateButtons();
+    message(path === '/api/stop' ? '正在请求停止…' : '正在提交目标…');
+    try {
+      const response = await fetch(path, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'X-Panel-Token':token},
+        body:JSON.stringify({...body, action_id:actionId()})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '提交失败');
+      message(path === '/api/stop' ? '已请求停止，等待 SDK 反馈。' : 'SDK 已受理，等待实测到位。');
+    } catch (error) {
+      message('请求未成功确认：' + error.message + '。未自动重发，请核对当前状态。', true);
+    } finally {
+      sending = false;
+      await refresh();
+    }
+  }
+  function sendMove(selected) {
+    if (sending || !valid) return;
+    const changes = {};
+    for (const index of selected) {
+      if (!inputs[index].reportValidity()) return;
+      changes[index] = Number(inputs[index].value);
+    }
+    if (!$('speed').reportValidity()) return;
+    post('/api/move', {changes, speed_rad_s:Number($('speed').value), enable_if_needed:$('enable').checked});
+  }
+  $('copy-all').onclick = () => copyCurrent(Array.from({length:16}, (_, i) => i));
+  $('send-all').onclick = () => sendMove(Array.from({length:16}, (_, i) => i));
+  $('stop').onclick = () => post('/api/stop', {});
+  $('enable').onchange = updateButtons;
+  async function poll() {
+    await refresh();
+    setTimeout(poll, 500);
+  }
+  poll();
+</script>
+</html>

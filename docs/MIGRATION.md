@@ -38,5 +38,6 @@ Docker Compose 从仓库根运行：`docker compose --env-file .env -f deploymen
 ## 未改变的资产和能力限制
 
 .env、.venv、.runtime、outputs、third_party 以及被忽略的 assets 文件继续原地保留。
-真实 URDF 仍未提供；wheel_description 的 urdf/meshes 是明确的资源边界，不放入假机器人模型。
+迁移时未提供真实 URDF；2026-10-27 已将用户提供的模型导入 assets/robots/r680_lift_openarm_claw1.3，
+三个 runtime 配置已更新，wheel_description 可安装该目录。该 CAD 模型尚未完成与 SDK 的坐标及 TCP 对齐。
 导航、SDK 运动执行和同步采集源保持未就绪。网页仅提供只读管理，完整调度/权限/参数发布等待后续实现。

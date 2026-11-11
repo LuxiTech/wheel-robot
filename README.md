@@ -3,7 +3,9 @@
 双臂轮式机器人的拆码垛工程，采用“核心算法库 → 运行适配 → 任务编排 → 网页管理”的分层架构。
 当前版本为 0.3.0。原单体 `wheel_grasp_core` 已拆分，旧 Python import 不再提供兼容副本。
 
-**当前支持只读诊断、离线感知/规划、任务逻辑测试及双 SDK 状态网页与可显式开启的 A/B 导航。导航已提供陆图 API 适配；完整抓取执行闭环尚未接入，不能直接执行自主拆码垛。**
+视觉抓取相关开发先阅读 [开发依据与核查要求](docs/VISUAL_GRASP_DEVELOPMENT.md)；仓库级执行要求见 [AGENTS.md](AGENTS.md)。必须结合真机 SDK、用户提供的 URDF、外参及实测记录，不能只依据当前代码判断。
+
+**当前支持只读诊断、离线感知/规划、任务逻辑测试、机械臂/升降单次目标控制及双 SDK 状态网页与可显式开启的 A/B 导航。导航已提供陆图 API 适配；完整抓取执行闭环尚未接入，不能直接执行自主拆码垛。**
 
 ## 项目结构
 
@@ -48,7 +50,7 @@ wheel-robot/
 - 两个算法库只依赖核心值类型及各自数学/图像库；感知与运动算法之间没有相互 import。
 - ROS 工作包是独立安装边界，已有算法通过适配器调用；新目录不等于已实现对应 ROS action server。
 - `wheel_runtime` 是任务装配入口；网页、网关不启动任务控制循环，不直接发送设备指令。
-- 厂商 SDK 实机部署在开发板，本地只读副本位于 device/；本工程只调用公开 API，不导入、同步或修改两套 SDK 的源码。
+- 厂商 SDK 实机部署在开发板；本项目已删除 device/ 下两套本地 SDK 副本，通过公开 HTTP/ROS 接口接入真机，不导入或链接厂商源码。运动学链快照、URDF 和外参独立保留。
 
 ## 本地运行与回归
 
@@ -121,7 +123,9 @@ tools/grasp/grasp ik --help
 | SDK 反馈映射、ROS 实测关节与 RGB-D 接收 | 已迁移；ROS 接收依赖开发板 `luxi_interfaces` |
 | 规划适配、网关、网页查询 | 已实现离线规划封装与本地只读管理 |
 | 导航 | 已实现陆图命名点 API 适配，默认不启用；实机运动待现场验收 |
-| 同步实机观测源、真机操作执行 | 未接入，默认 `ready=False` |
+| 联合 IK 端点执行 | 已接求解→分阶段下发→实测 FK 确认；2026-10-30 有界联合端点动作实机复测通过，见 [执行记录](ros2_ws/src/wheel_execution/wheel_execution/README.md) |
+| 机械臂/升降单次目标控制 | 已接 SDK；升降含租期心跳、到位及停止确认，见 [执行接口说明](ros2_ws/src/wheel_execution/wheel_execution/README.md) |
+| 同步实机观测源、完整抓取执行 | 未接入，默认 `ready=False` |
 | 多箱调度、任务持久化调度服务、用户权限、配置发布 | 后续开发范围 |
 
 当前 CAD 为约 445×310×180 mm，源开口朝 -Z；历史示例规则仍为 400 mm 宽、220 mm 高。
@@ -141,3 +145,12 @@ TCP、相机外参、深度度量语义、箱沿夹取偏移及升降映射仍�
 - [接口与当前管理范围](docs/INTERFACES.md)
 - [验证记录与复现方法](docs/VALIDATION.md)
 - [双 SDK 连接与 A/B 导航说明](ros2_ws/src/wheel_navigation/SDK_INTEGRATION_README.md)
+
+## Python 代码格式
+
+使用仓库 `ruff.toml` 统一四空格缩进、100字符行宽和导入分组。
+
+```bash
+uv tool run ruff format packages ros2_ws/src tools apps tests
+uv tool run ruff check packages ros2_ws/src tools apps tests
+```

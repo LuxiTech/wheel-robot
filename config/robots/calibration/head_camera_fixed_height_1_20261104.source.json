@@ -1,0 +1,14 @@
+{
+  "source_path": "/home/luxi/qingyue/biaoding/calibration_teleop_multiheight_20261104/calculation/comparison_20pct/strict_80pct_train/fixed_height_1.json",
+  "source_sha256": "d5a86e4dcb8c060d5db632a585c60a77f60358d92a6fe17f63e8cb1a876ec4fa",
+  "project_path": "/home/luxi/qingyue/wheel-robot/config/robots/calibration/head_camera_fixed_height_1_20261104.json",
+  "project_sha256": "d5a86e4dcb8c060d5db632a585c60a77f60358d92a6fe17f63e8cb1a876ec4fa",
+  "copied_exact_bytes": true,
+  "selected_at_utc": "2026-11-04T02:52:29.707311+00:00",
+  "reason": "User explicitly selected strict_80pct_train/fixed_height_1.json",
+  "previous_selected_calibration": "config/robots/calibration/head_camera_left_j3_rezero_20261103.json",
+  "robot_motion_commands_sent": false,
+  "operation": "moved_into_project",
+  "original_path_exists": false,
+  "moved_at_utc": "2026-11-04T02:54:09.752984+00:00"
+}

@@ -1,0 +1,210 @@
+{
+  "schema": "wheel_head_extrinsics_v1",
+  "selection": "post_zero_20261102_candidate",
+  "status": "candidate_group_cross_validated_at_one_height",
+  "deployable": false,
+  "parent_frame": "arm_origin",
+  "child_frame": "head_rgb_color_optical",
+  "units": "metres",
+  "T_origin_camera": [
+    [
+      0.016305432678990924,
+      -0.8907980561553817,
+      0.4541067671979184,
+      0.11602528645250869
+    ],
+    [
+      -0.998214523657198,
+      -0.040603656134562016,
+      -0.04380762340437802,
+      -0.037989959250535145
+    ],
+    [
+      0.057462140797088807,
+      -0.45258166805373345,
+      -0.8898696174815252,
+      0.15000113315506716
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "T_ee_board": [
+    [
+      -0.9975113472807936,
+      0.057937033143786516,
+      -0.04017974908522976,
+      -0.14540314096120344
+    ],
+    [
+      -0.03980520430086414,
+      0.007604794198364234,
+      0.9991785189923607,
+      -0.05038629086132562
+    ],
+    [
+      0.058194997694155,
+      0.9982912737751927,
+      -0.00527967306572908,
+      -0.1402775648805467
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "reference_height_um": 179494,
+  "lift_axis_in_origin": [
+    0.0,
+    0.0,
+    1.0
+  ],
+  "height_range_um": [
+    -180000,
+    180000
+  ],
+  "measured_height_range_um": [
+    179494,
+    179494
+  ],
+  "lift_compensation": {
+    "formula": "R(h)=R0; t(h)=t0-[0,0,1]*(h_um-h0_um)*1e-6",
+    "source": "Recorded SDK cell.xml: lifter axis +Z, arms attached without rotation",
+    "fitted_from_this_bag": false,
+    "cross_height_validated": false,
+    "reason": "All valid lift feedback in this bag equals 179494 um; direction/scale unobservable",
+    "height_range_policy": "Configured hardware envelope only; accuracy evaluated at measured height only"
+  },
+  "camera": {
+    "id": "head_rgb",
+    "serials": [
+      "261043062235"
+    ],
+    "optical_frames": [
+      "head_rgb_color_optical"
+    ],
+    "intrinsics": {
+      "stamp_ns": 1793589350712364397,
+      "width": 640,
+      "height": 480,
+      "K": [
+        387.0193786621094,
+        0.0,
+        318.66900634765625,
+        0.0,
+        386.51220703125,
+        240.11669921875,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "D": [
+        -0.05630532652139664,
+        0.060888826847076416,
+        -0.00026793632423505187,
+        -0.00022309062478598207,
+        -0.019627751782536507
+      ],
+      "distortion_model": "realsense_2",
+      "frame": "head_rgb_color_optical"
+    }
+  },
+  "base_T_origin_at_reference": null,
+  "ee_T_tcp": {
+    "left": null,
+    "right": null
+  },
+  "limitations": [
+    "Single session, pose-group held-out validation, not independent physical metrology",
+    "Lift compensation is nominal and not evaluated across heights by this bag",
+    "Board-to-wrist mounting is estimated; board pose does not establish grasp TCP",
+    "Hardware zero was changed before this recording; old recordings are not pooled"
+  ],
+  "source": {
+    "path": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261102/full_stationary/pairs.json",
+    "sha256": "9389b4ad3d8dbfbfe13079291411269bc1718e954037d08ecff4fb990dac3975",
+    "bag": "/home/luxi/qingyue/wheel-robot/outputs/calibration-rezero/20261102/source/calibration_rezero_20261102_111542_56BKE5",
+    "board_pattern_inner_corners": [
+      11,
+      8
+    ],
+    "square_size_m": 0.01,
+    "board_reference": "Existing operator-confirmed pattern and square size",
+    "remote_sha256_manifest": "outputs/calibration-rezero/20261102/source/remote_source_sha256.json",
+    "sdk_model_sha256": "cb4aad7ef1ce36137ccc07894186f06a60fa45251f3bb94da91aa4be6bc23ae5",
+    "live_sdk_ik_sha256": "d4cdb66950ac8a89bd9bf62b044e1670fc3647b6aa58b3de191cf76ef761bb56"
+  },
+  "validation_summary": {
+    "recorded_frames_checked": 7723,
+    "accepted_stationary_frames": 438,
+    "pose_groups": 22,
+    "in_sample": {
+      "translation_mm": {
+        "count": 438,
+        "rms": 13.629385944531476,
+        "median": 9.859275567391506,
+        "p95": 23.060732319016246,
+        "max": 27.336407677565678
+      },
+      "rotation_deg": {
+        "count": 438,
+        "rms": 3.3281723743140255,
+        "median": 2.0672515125727133,
+        "p95": 5.81921398236407,
+        "max": 6.36701559093995
+      },
+      "board_points_rms_mm": {
+        "count": 438,
+        "rms": 13.296142372865708,
+        "median": 11.36176166543064,
+        "p95": 22.260195153045046,
+        "max": 27.219752496596996
+      },
+      "reprojection_rms_px": {
+        "count": 438,
+        "rms": 3.332907614096404,
+        "median": 2.730262432603256,
+        "p95": 5.519825612638476,
+        "max": 15.528685492941758
+      },
+      "translation_below_10mm": 222,
+      "pose_group_count": 22
+    },
+    "pose_group_cross_validation": {
+      "translation_mm": {
+        "count": 438,
+        "rms": 14.514533837961846,
+        "median": 11.293176154816067,
+        "p95": 24.307284713106277,
+        "max": 25.73126120180815
+      },
+      "rotation_deg": {
+        "count": 438,
+        "rms": 3.1964177951504844,
+        "median": 2.125693137844836,
+        "p95": 5.619045331610781,
+        "max": 6.844925524976575
+      },
+      "board_points_rms_mm": {
+        "count": 438,
+        "rms": 14.057439551386766,
+        "median": 12.020873800488072,
+        "p95": 23.6199216797713,
+        "max": 25.853371301679946
+      },
+      "reprojection_rms_px": {
+        "count": 438,
+        "rms": 3.9185502033120705,
+        "median": 3.227992444904345,
+        "p95": 5.71136835599823,
+        "max": 18.266154071316414
+      }
+    },
+    "reference": "outputs/calibration-rezero/20261102/full_stationary/calibration_result.json"
+  }
+}

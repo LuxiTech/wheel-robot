@@ -1,0 +1,4 @@
+# Optional offline conversion/verification environment; never installed on the robot by these tools.
+mujoco==3.3.7
+pycollada==0.9.3
+trimesh==5.1.1
