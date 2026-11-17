@@ -14,3 +14,7 @@
 | `extrinsics.py` | 第一套头部外参、相对升降补偿、相机来源检查及 SDK 坐标转换；不发送运动指令。 |
 | `rgbd.py` | Strict reader for SDK ba0c732 atomic RGB-D, plus lossless replay storage. |
 | `visualization.py` | Diagnostic overlays. All projections use the saved optical camera frame. |
+
+`targets.py`输出视觉与运控之间的显式目标包：图像身份、SDK arm_origin、米制刚体位姿、
+左右臂分配、局部箱沿顶点、滑动导轨下表面停止基准及不可丢弃的质量拒绝。
+`insertion.py`仅计算同一光学坐标中的竖直净空，不直接授权闭爪或发送控制。

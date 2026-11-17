@@ -5,6 +5,13 @@
 `head_camera_left_j3_rezero_20261103.json`与`head_camera_rezero_20261102.json`保留作匹配零点的历史回放。
 `head_camera_first.json`保留为标零前历史资料和显式对照，不再作为当前计算默认值。外参不替代CAD URDF。
 
+2026-11-12按用户摆放的当前姿态重标左右J7，见`j7_rezero_20261112.json`。
+本次未探测机械止挡，未独立验收该摆放与URDF设计零位的角度精度。
+现有选定外参拟合于此次J7坐标变化之前，文件保持不变。随后用原928帧核对：末端J7坐标变化
+可由腕端到棋盘的固定安装矩阵换算完全吸收，保留相机到臂根外参时，棋盘位姿最大矩阵元素差约5.55e-16。
+因此此次仅J7写零不要求重拍标定或改相机外参；历史标定回放须同时换算J7与腕端到棋盘矩阵。
+当前SDK反馈直接使用，不再叠加历史换算量。计算等价不代表原外参实物精度或手摆零位已验收。
+
 | 文件 | 用途 |
 | --- | --- |
 | `head_camera_first.json` | 第一套相机外参、参考升降反馈 170000 μm、相机序列号和允许高度范围。 |
@@ -14,6 +21,7 @@
 | `head_camera_j4_rezero_20261104.json` | 当前候选；复用同一录包、265帧训练与186帧姿态组留出，换算历史J4角度并重算FK后拟合；名义+Z补偿、单位比例及高度范围不变。 |
 | `left_j3_rezero_20261103.json` | 左J3写零前后反馈与机械基准记录；不自动给当前SDK反馈加偏移。 |
 | `j4_rezero_20261104.json` | 左右J4硬件写零、复测机械基准、实际坐标变化和当前临时保持服务记录；不自动给当前反馈加偏移。 |
+| `j7_rezero_20261112.json` | 左右J7按用户摆放姿态写零、实际坐标变化及原相机外参可保留的928帧验证；不自动给当前反馈加偏移。 |
 | `sdk_arm_chains.json` | 从 SDK `openarm_bimanual.xml` 提取的双臂关节链，记录来源 SHA256；不包含惯量、碰撞或控制器。 |
 | `sdk_arm_chains_claw14.json` | 当前claw1.4完整URDF在SDK兼容arm_origin下的臂链；右肩采用URDF安装位置，旧链不覆盖。 |
 | `gripper_claw14.json` | 继承原有传动近似，记录来源及左爪方向未解决限制，不改电机控制配置。 |
@@ -380,3 +388,16 @@ URDF两侧J7都是link6局部X轴、关节origin为单位矩阵，因此link6_T_
 因此上述“12～16度对64度”不能用于定位夹爪位姿误差，也不能据此排除相机外参。
 relative-rail-audit的report/summary已标记retracted，原网页结论已替换；原始数据保留供追溯。
 URDF默认姿势与真机姿势不同是正常的，必须使用配对反馈驱动模型，再核实同一物理部件的对应关系。
+
+## 2026-11-13 当前夹爪开合映射同步
+
+直接SSH读取当前进程使用的`/home/sunrise/.local/share/urdf-wrist-neutral/arms-claw14-wrist-neutral.json`，
+配置SHA256为f74b4147a48794583d935b0049de1a90f9957a178b7ac7254a69a634f0e1f0e6。
+本地`gripper_claw14.json`的两侧open/closed、SDK offset及限位来源字段已同步；左侧opening_sign
+按11月2日用户确认的负向打开及当前SDK负向open改为−1，右侧保留−1。新来源记录
+`gripper_claw14.source.json`保留旧字段和指纹，原文件备份在outputs/grasp/pipeline-20261113/。
+
+直接核对openarm_adapter.cpp：发送位置为target+offset，反馈为raw−offset。
+夹指位移仍按SDK反馈相对SDK闭合参考0计算增量，offset只恢复raw元数据，不加回闭合锚点。
+传动比例和12.86mm CAD名义闭合参考均保留，hardware_validated仍false；未修改SDK或驱动、
+没有运动/写零。当前估计左47.577mm、右46.920mm超URDF44mm名义上限，仍如实标记，不裁剪。

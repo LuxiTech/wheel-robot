@@ -12,10 +12,13 @@ def finger_displacement(
     closed_feedback_rad=None,
     closed_displacement_m=None,
 ):
-    """SDK feedback + offset is raw motor radians; raw zero is assumed closed.
+    """Convert motor feedback to nominal travel with explicit closed references.
 
-    opening_sign is +1 for increasing raw angle on opening, -1 otherwise.
-    This assumption is reported, never silently reanchored to CAD contact.
+    SDK feedback + offset is raw motor radians for metadata. With a supplied
+    closed reference, travel depends on SDK angle increments about that
+    reference; the raw motor offset is not added to the closed anchor.
+    The legacy no-anchor branch alone assumes raw motor zero is closed.
+    opening_sign is +1 for increasing angle on opening, -1 otherwise.
     """
     if (
         opening_sign not in (-1, 1)

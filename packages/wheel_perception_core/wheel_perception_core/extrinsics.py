@@ -110,7 +110,10 @@ class CalibratedHeadTransform:
         )
 
     def resolve(self, observation, context):
-        if not isinstance(context, dict) or context.get("schema") != "wheel_lift_capture_v1":
+        if not isinstance(context, dict) or context.get("schema") not in (
+            "wheel_lift_capture_v1",
+            "wheel_lift_stream_capture_v1",
+        ):
             raise ValueError("Timestamped lift capture context required")
         m = observation.metadata
         if context.get("pair_id") != m["pair_id"]:
@@ -127,8 +130,23 @@ class CalibratedHeadTransform:
             raise ValueError("Unstable or incomplete lift capture")
         a, b = context["bracket_mono_ns"]
         stamp = int(m["receive_mono_ns"])
+        streaming = context["schema"] == "wheel_lift_stream_capture_v1"
+        if streaming:
+            window = context.get("stationary_window_mono_ns")
+            if (
+                not isinstance(window, list)
+                or len(window) != 2
+                or not int(window[0]) <= stamp - 300_000_000
+                or int(window[1]) != int(b)
+                or context.get("freshness_policy") != "strict"
+                or len(context.get("sdk_valid", [])) != int(context["sample_count"])
+                or not all(v is True for v in context.get("sdk_valid", []))
+                or int(context["sample_count"]) < 3
+            ):
+                raise ValueError("Native-valid fixed-lift history required for streaming")
+        margin = 0 if streaming else 100_000_000
         if (
-            not int(a) <= stamp - 100_000_000 <= stamp + 100_000_000 <= int(b)
+            not int(a) <= stamp - margin <= stamp + margin <= int(b)
             or not 0 <= int(b) - int(a) <= 500_000_000
         ):
             raise ValueError("Missing or excessive lift bracket")

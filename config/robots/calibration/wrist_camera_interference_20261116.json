@@ -1,0 +1,40 @@
+{
+  "schema": "wheel_wrist_camera_interference_evidence_v1",
+  "recorded_date": "2026-11-16",
+  "user_confirmation": "相机支架安装在j8关节上面，导致j7关节的运动部分受限，左右两侧都会由于相机支架的缘故达不到该有的活动区间",
+  "scope": "User-confirmed wrist camera mount restriction, with a subsequent explicit instruction to use fixed symmetric J7 operating limits of +/-52 degrees on both arms",
+  "physical_interference_confirmed": true,
+  "numeric_safe_limits_measured": false,
+  "runtime_constraint_integrated": true,
+  "operating_limit_instruction": "先改成+-52度，可转范围不受相邻腕关节姿态影响",
+  "operating_limits": {
+    "source": "Explicit user instruction on 2026-11-16; not a new mechanical-stop measurement",
+    "right_J7_deg": [-52.0, 52.0],
+    "left_J7_deg": [-52.0, 52.0],
+    "right_J7_rad": [-0.9075712110370514, 0.9075712110370514],
+    "left_J7_rad": [-0.9075712110370514, 0.9075712110370514],
+    "independent_of_adjacent_wrist_pose": true,
+    "deployment_log": "outputs/grasp/visual-grasp-runs/20261116T014656Z-j7-limit52/execution.log"
+  },
+  "user_mount_joint_label": "J8; retained as the user's physical label, not reinterpreted as an SDK wrist index",
+  "sdk_joint_mapping": {
+    "right_J7": {"sdk_index": 6, "can_interface": "luxi_right", "motor_id": 7},
+    "left_J7": {"sdk_index": 14, "can_interface": "luxi_left", "motor_id": 7}
+  },
+  "observed_right_pose": {
+    "source_run": "outputs/grasp/visual-grasp-runs/20261115T144750Z-wHN0fd/run",
+    "sdk_J6_rad": 0.750171663996338,
+    "sdk_J7_rad": -0.9088654917219802,
+    "model_interference_pair": ["right_wrist_camera_bracket_link", "openarm_right_link5"],
+    "model_mesh_max_contact_depth_m": 0.0012476861845364742,
+    "physical_contact_depth_measured": false
+  },
+  "geometry": {
+    "urdf": "assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf",
+    "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+    "joint_coordinate_policy": "Use actual SDK joint angles directly, without additional zero, sign or offset changes",
+    "constraint_policy": "Use the user's fixed +/-52 degree J7 operating bounds for both arms, independent of adjacent wrist pose; preserve previous mesh replay as diagnostic history"
+  },
+  "evidence_directory": "outputs/grasp/visual-grasp-runs/20261116T012015Z-j7-audit/run",
+  "implementation_note": "The fixed J7 bounds are deployed in the actual SDK arms-kh.json and synchronized to arms-teleop.json and arms.json. Live planning, IK, reference generation and validation consume the SDK-reported bounds. Original URDF geometry, zero positions, gains and runtime collision policy are unchanged. This evidence JSON documents the deployment; it is not itself a configuration loader."
+}

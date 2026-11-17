@@ -1,0 +1,67 @@
+{
+  "schema": "manual_position_two_J7_hardware_zero_v1",
+  "created_utc": "2026-11-12T08:32:49.120899Z",
+  "reference": "User explicitly positioned both J7 joints and requested registering the current pose as zero; mechanical-stop probing was explicitly cancelled",
+  "method": "Disabled motors: selected motor ID7 Disable -> Set Zero (0xFE) -> Disable",
+  "hardware_zero_written": true,
+  "mechanical_stops_measured": false,
+  "urdf_physical_zero_independently_verified": false,
+  "selected": {
+    "right": {
+      "interface": "luxi_right",
+      "motor_id": 7,
+      "sdk_index": 6,
+      "raw_before_rad": -0.5506599526970319,
+      "raw_after_rad": -0.0001907377737087046,
+      "measured_coordinate_change_rad": 0.5504692149233232
+    },
+    "left": {
+      "interface": "luxi_left",
+      "motor_id": 7,
+      "sdk_index": 14,
+      "raw_before_rad": 0.5010681315327687,
+      "raw_after_rad": -0.0001907377737087046,
+      "measured_coordinate_change_rad": -0.5012588693064775
+    }
+  },
+  "coordinate_policy": {
+    "historical_conversion": "q_after[6] = q_before[6] + right.measured_coordinate_change_rad; q_after[14] = q_before[14] + left.measured_coordinate_change_rad; all other joint coordinates unchanged",
+    "current_sdk_feedback": "Use directly; never apply the historical conversion again",
+    "historical_conversion_precision": "Same-position encoder coordinate difference including finite quantization; not an independent angular accuracy measurement"
+  },
+  "validation": {
+    "raw_selected_feedback_near_zero": true,
+    "unselected_motors_not_written": 14,
+    "maximum_unselected_position_code_change": 1,
+    "fresh_valid_disabled_sdk_samples": 5,
+    "output_enable_count_after_service_restart": 0,
+    "arm_monitor_restored": true,
+    "motors_left_disabled": true,
+    "motion_targets_sent": false,
+    "lift_commands_sent": false,
+    "sdk_configuration_hashes_unchanged": true,
+    "motor_power_cycle_persistence_tested": false
+  },
+  "existing_calibration": {
+    "path": "config/robots/calibration/head_camera_j4_rezero_20261104.json",
+    "modified": false,
+    "fitted_before_this_J7_coordinate_change": true,
+    "required_followup": "Camera-to-arm-origin extrinsic can remain unchanged for this pure terminal J7 coordinate rebase. Convert historical J7 coordinates and the wrist-to-board transform together for calibration replay; use current SDK joint feedback directly. Existing physical accuracy limitations remain.",
+    "reuse_validation": {
+      "record": "outputs/grasp/j7-rezero/20261112T082507.611992Z/extrinsics_reuse_check.json",
+      "frames_checked": 928,
+      "camera_matrix_modified": false,
+      "maximum_board_pose_matrix_element_difference": 5.551115123125783e-16,
+      "formula": "A_new=A_old*C; Y_new=inverse(C)*Y_old; A_new*Y_new=A_old*Y_old; retain camera transform X",
+      "independent_physical_accuracy_validation": false
+    }
+  },
+  "records": {
+    "local": "outputs/grasp/j7-rezero/20261112T082507.611992Z/",
+    "final_result": "outputs/grasp/j7-rezero/20261112T082507.611992Z/final_result.json",
+    "verification": "outputs/grasp/j7-rezero/20261112T082507.611992Z/verification_after_feedback_recovery.json",
+    "robot": "/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/work/j7-user-position-zero/20261112T083249.120899Z/",
+    "local_evidence_archive": "outputs/grasp/j7-rezero/20261112T082507.611992Z/robot-evidence.tar.gz",
+    "initial_worker_post_restart_verification": "Timed out while feedback recovered; subsequent read-only validation succeeded. Each selected motor received exactly one zero-write invocation."
+  }
+}

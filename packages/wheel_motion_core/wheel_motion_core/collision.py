@@ -59,12 +59,21 @@ def origin(node):
 
 class URDFCollision:
     def __init__(
-        self, urdf, robot, world_boxes, *, base="base_footprint", allowed_pairs=(), margin=0.005
+        self,
+        urdf,
+        robot,
+        world_boxes,
+        *,
+        base="base_footprint",
+        allowed_pairs=(),
+        margin=0.005,
+        narrow_phase=None,
     ):
         self.robot = robot
         self.base = base
         self.world = list(world_boxes)
         self.margin = margin
+        self.narrow_phase = narrow_phase
         self.parts = []
         self.ignored = {frozenset(p) for p in allowed_pairs}
         self.ignored |= {frozenset((j["parent"], j["child"])) for j in robot.joints.values()}
@@ -116,7 +125,9 @@ class URDFCollision:
             for other, b in boxes[idx + 1 :]:
                 if name == other or frozenset((name, other)) in self.ignored:
                     continue
-                if overlaps(a, b, self.margin):
+                if overlaps(a, b, self.margin) and (
+                    self.narrow_phase is None or self.narrow_phase(a, b, self.margin)
+                ):
                     self.last_collision = (a.name, b.name)
                     return False
             for b in self.world:

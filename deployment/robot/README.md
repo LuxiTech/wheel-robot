@@ -6,6 +6,7 @@
 | `wheel-joint-feedback.service` | 已有关节反馈服务模板。 |
 | `hold_trim/` | 既有保持补偿工具。 |
 | `console_authority/` | 控制台与遥操显式权限的候选生成、构建、隔离验证和空闲部署工具。 |
+| `joint_stream/` | 笔记本100Hz关节参考的UDP接收协议、独立SDK候选准备和本地原生检查；不安装或启动真机服务。 |
 | `check_model_ik.cpp` | 在真机SDK头文件和MuJoCo库上只读加载新模型，检查FK与IK；不创建ROS节点或硬件控制器。 |
 | `install_claw14_model.py` | 仅用于本次用户明确授权的1.4模型部署：先检查原模型和已通过的SDK计算记录，再并列安装新XML/网格，备份并更新启动model参数；不启动服务或发送运动。 |
 

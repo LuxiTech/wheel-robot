@@ -56,7 +56,10 @@ class JointClient:
         s, error = None, None
         try:
             # No fallback to older HTTP data if the selected feedback source fails.
-            s = self.feedback.request("GET", "/api/state")
+            path = self.policy.get("feedback_path", "/api/state")
+            if path not in ("/api/state", "/api/stream_state"):
+                raise SDKError("Unknown joint feedback endpoint")
+            s = self.feedback.request("GET", path)
             elapsed = time.monotonic() - start
             self._validate_snapshot(s, elapsed)
             return s
@@ -98,15 +101,22 @@ class JointClient:
         ):
             raise SDKError("Fresh compatible joint feedback required")
         now = int(s["server_mono_ns"])
+        maximum_age = self.policy.get("feedback_max_age_s", FEEDBACK_MAX_AGE_S)
+        if not isinstance(maximum_age, (int, float)) or not 0 < maximum_age <= FEEDBACK_MAX_AGE_S:
+            raise SDKError("Invalid joint feedback freshness policy")
+        independent = self.policy.get("feedback_path") == "/api/stream_state"
+        if independent and s.get("topic_pairing") != "independent_receive_monotonic":
+            raise SDKError("Independent topic timestamps required for streaming feedback")
         for name, obj in (("arms", arms), ("arm_startup", startup)):
             age = (now - int(obj["receive_mono_ns"])) / 1e9 + elapsed
-            if not 0 <= age <= FEEDBACK_MAX_AGE_S:
+            if not 0 <= age <= maximum_age:
                 raise SDKError(
                     "Joint feedback stale: %s effective=%.3f ms, request=%.3f ms"
                     % (name, age * 1000, elapsed * 1000)
                 )
         skew = abs(int(arms["receive_mono_ns"]) - int(startup["receive_mono_ns"])) / 1e9
-        if self.policy.get("feedback_url") and skew > 0.03:
+        maximum_skew = 0.15 if independent else 0.03
+        if self.policy.get("feedback_url") and skew > maximum_skew:
             raise SDKError("Joint feedback/status timestamp mismatch: %.3f ms" % (skew * 1000))
         q = vector(arms["position"], "Feedback")
         vector(arms["velocity"], "Velocity")
@@ -115,8 +125,7 @@ class JointClient:
             raise SDKError("All 16 joints need valid feedback")
         snapshot_age = (now - int(arms["receive_mono_ns"])) / 1e9 + elapsed
         if any(
-            not math.isfinite(float(a))
-            or not 0 <= float(a) / 1e9 + snapshot_age <= FEEDBACK_MAX_AGE_S
+            not math.isfinite(float(a)) or not 0 <= float(a) / 1e9 + snapshot_age <= maximum_age
             for a in ages
         ):
             raise SDKError("Per-joint feedback stale")
@@ -124,8 +133,15 @@ class JointClient:
             vector(joint["lower"], "Lower limits"),
             vector(joint["upper"], "Upper limits"),
         )
-        if any(not lo <= v <= hi or lo >= hi for lo, v, hi in zip(lower, q, upper)):
-            raise SDKError("Measured position outside SDK limits")
+        violations = [
+            f"{'right' if index < 8 else 'left'} J{index % 8 + 1}: "
+            f"measured={math.degrees(value):.5f}deg, "
+            f"limits=[{math.degrees(lo):.5f}, {math.degrees(hi):.5f}]deg"
+            for index, (lo, value, hi) in enumerate(zip(lower, q, upper))
+            if not lo <= value <= hi or lo >= hi
+        ]
+        if violations:
+            raise SDKError("Measured position outside SDK limits: " + "; ".join(violations))
         return s
 
     def preflight(self):

@@ -25,12 +25,25 @@ def main():
     selection = p.add_mutually_exclusive_group(required=True)
     selection.add_argument("--target-pixel", nargs=2, type=float)
     selection.add_argument(
+        "--auto-target",
+        action="store_true",
+        help="Require exactly one detector candidate; never pick an arbitrary box",
+    )
+    selection.add_argument(
         "--box",
         nargs=4,
         type=float,
         help="Explicit ROI for diagnostic segmentation when detector misses target",
     )
+    p.add_argument(
+        "--clean-depth",
+        action="store_true",
+        help="Keep the dominant connected 3D target; preserve the original SAM mask",
+    )
     p.add_argument("--mesh", default="assets/objects/crate/model.obj")
+    p.add_argument(
+        "--output", type=Path, help="Explicit new artifact directory for workflow composition"
+    )
     p.add_argument(
         "--lift-context",
         type=Path,
@@ -71,7 +84,11 @@ def main():
     ]:
         os.environ[key] = str(ROOT / ".runtime/vision" / sub)
         Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
-    out = ROOT / "outputs/grasp/camera-preview" / uuid.uuid4().hex[:10]
+    out = (
+        args.output.resolve()
+        if args.output
+        else ROOT / "outputs/grasp/camera-preview" / uuid.uuid4().hex[:10]
+    )
     out.mkdir(parents=True)
     print("Artifacts: " + str(out), flush=True)
     trace = Trace(out)
@@ -173,6 +190,12 @@ def main():
                 h, w = inp.depth.shape
                 if not (0 <= box[0] < box[2] <= w and 0 <= box[1] < box[3] <= h):
                     raise ValueError("Invalid ROI")
+            elif args.auto_target:
+                if len(candidates) != 1:
+                    raise ValueError(
+                        "Exactly one detector candidate required; found " + str(len(candidates))
+                    )
+                box = candidates[0]["box"]
             else:
                 x, y = args.target_pixel
                 selected = [
@@ -188,6 +211,12 @@ def main():
                 box = selected[0]["box"]
         with trace.stage("segmentation"):
             mask = detector.segment(inp.rgb, box)
+            if args.clean_depth:
+                from wheel_perception_core.geometry import connected_depth_mask
+
+                trace.png("04_raw_sam_mask", mask.astype(np.uint8) * 255)
+                mask, component_quality = connected_depth_mask(mask, inp.depth, inp.k)
+                write_json(out / "depth_components.json", component_quality)
             quality = mask_quality(mask, inp.depth)
             trace.record("segmentation", inp=inp, mask=mask, quality=quality)
             if not quality["accepted"]:

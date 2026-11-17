@@ -1,0 +1,7 @@
+{
+  "base_url": "http://192.168.127.10:18030",
+  "feedback_url": "http://192.168.127.10:18032",
+  "feedback_diagnostics": "outputs/joint_feedback/feedback.jsonl",
+  "compensated_handover_protocol": "nominal_target_v1",
+  "hold_takeover_enabled": true
+}

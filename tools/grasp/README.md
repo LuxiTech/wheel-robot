@@ -384,3 +384,201 @@ J4事件`--zero-record`、原冻结训练/测试划分`--split`和新目录`--ou
 不会把OpenCV空距离图的哨兵值当成实测误差。轮廓拟合仅作诊断，不能认定为硬件零点或TCP精度。
 `report_residual_models.py --root 本轮目录`可复建11月5日的交互报告；目录组织见
 `outputs/calibration-rezero/20261105/model-comparison/`。
+
+`fit_current_pose_sine.py --capture 配对目录 --calibration 诊断外参 --output 新目录`
+离线查看单个位姿下`q_virtual=q+a+b*q+c*sin(q)`的局部贴合效果，沿用轮廓弱先验及参数边界。
+当前入口仅针对11月13日画面已核对的可见红色内指（左ee_link2、右ee_link1）计分，
+其余网格仍绘入实体叠图供交叉观察；不能将未计分部分记为已对齐。
+一个姿态对每关节的常数/线性/sin基仅有秩1，21个参数不唯一，不提供多姿态鲁棒性结论。
+本轮单独保存左爪负向开合诊断副本，不改原采集、生产映射、SDK、URDF或控制目标。
+实际回放见`outputs/grasp/fixed-height-sine/20261113T085657Z/fit-visible-red/report.html`。
+
+腕部下探停止的纯几何函数位于`wheel_perception_core/insertion.py`：在同一光学坐标中，
+将导轨下表面与局部箱沿顶点投影到竖直方向，扣除显式净空/不确定性余量。
+返回的是几何接受状态，不能代替完整控制器的时效、运动/碰撞、钩尖插入和闭合保护。
+11月13日腕部叠图不符的诊断见`outputs/grasp/wrist-insertion-20261113/20261113T091309Z/report.html`；
+原始资源与帧已保留。该函数未接入真机动作，不会因为高度条件成立自动闭爪或试抬。
+
+## 视觉目标到传统运控（固定升降）
+
+`plan_visual_grasp.py --preview 已完成的camera-preview目录 --capture 同期关节采集目录 --calibration 本次外参 --output 新目录 --steps 40`
+将真实视觉估姿转换为`wheel_visual_grasp_target_v1`，按SDK +Y分配左右臂，明确区分箱沿点、
+CAD夹持参考和SDK link7腕端。按“两指滑动导轨下表面”计算目标高度；本次试验采用10mm
+名义净空；对准时整个夹爪最低点高于箱沿30mm，覆盖当前及张开宽度。
+路径先竖直留净空，再等高平移/转向，最后竖直到对准位置。这些参数不等于物理精度或验收结论。
+升降固定在同期反馈值。
+输出`target.json`、`resolved_tool_targets.json`、`wrist_targets.json`、`plan.json`及抓取点报告。
+该工具只规划，不发送机器人命令；场景碰撞检查未配置时不会将规划标为可执行。
+
+视觉入口`preview_camera_grasps.py --clean-depth`可保留原SAM掩码并使用既有3D连通域清理前景干扰。
+掩码清理后仍保留完整性、深度和外参质量拒绝，不能为执行而删掉拒绝原因。
+本次真实数据入口为`outputs/grasp/pipeline-20261113/plan-final/report.html`。
+
+实际执行组合入口为`wheel_execution.stationary_pick.create_stationary_pick`，接收实时目标源、
+SDK关节/升降只读客户端、场景碰撞检查器和已验收的夹持接触策略。它组合了：
+
+- `PlanningTargetSource(PipelineVision(...), rules, ...)`：保留同帧升降、图像身份、源时间和质量状态；
+- `VisualGraspPlanner`：固定升降、箱沿/夹持点到腕端转换、分段IK及连续性/碰撞检查；
+- `SDKWaypointDriver`：SDK公共关节接口逐段到位，保持原升降，不把离线五次插值误称为SDK流式控制；
+- `SDKGripperOpener`：对准且停稳后才张开，保持手臂目标，双侧开到位后才允许下插；
+- `WristClearanceSource`：新鲜双腕RGB-D在预期局部箱沿附近测深，按导轨下表面判断净空；
+- `SDKContactCloser`：小步闭合、双侧接触与硬负载保护，夹爪到0不等于抓住箱体；
+- `VisualTestLiftVerifier`：手臂试抬10mm后要求箱体视觉随动且双侧接触保持。
+
+本次尚未把该组合部署为可用的真机抓取服务：当前腕部几何/深度、视觉质量、夹持策略和
+场景碰撞检查尚未共同通过。移动搬运的原`SDKMotionExecutor`仍保留未就绪状态，不能把定点
+抓取组合当作已实现运输/放置。禁止清空blockers、伪造接触策略或把回放时间改成当前时间来执行。
+
+`visual_grasp_flow.py`提供一个只读组合入口，将新采图、视觉推理、固定高度IK和场景碰撞检查串起来：
+
+```bash
+.venv/bin/python tools/grasp/visual_grasp_flow.py \
+  --calibration outputs/grasp/fixed-height-sine/20261113T085657Z/diagnostic_camera.json \
+  --box 205 210 420 385 --clean-depth \
+  --output outputs/grasp/my-new-flow
+```
+
+上述外参和ROI仅对应本次固定高度诊断，不是任意场景的默认配置。省略ROI时要求检测器恰好返回
+一个目标；检测失败不会自动选框。`--capture/--preview`可复用同一图像对的记录，保留回放属性。
+`flow.json`中的completed指只读处理完成，不能当作抓取成功；该入口不提供运动开关。
+
+真机试验可同时启动只读记录器，保留10Hz关节反馈、2Hz SDK整机状态、三路2秒一次的原子RGB-D、
+相机时间戳和失败原因：
+
+```bash
+.venv/bin/python tools/grasp/record_pick_run.py --output outputs/grasp/my-pick/telemetry --duration 60
+```
+
+记录器不发动作；实际动作的请求ID、目标和返回值另存事件日志。2026-11-15实测记录入口为
+`outputs/grasp/live-pick-20261115-01/report.html`，包含0.2rad/s抬臂的主动停止及随后到位全过程，
+不能把该次抬臂成功记成抓取成功。
+
+2026-11-15用户允许放宽后，视觉抓取位置门限默认3mm，`--position-tolerance-mm`可显式指定
+不超过5mm的值；其他IK入口仍默认2mm，SDK原关节限位不变。
+`plan_visual_grasp.py --mesh-collision`在包围盒筛选后使用原始collision网格/实体复核，
+保留原有余量、材料内部包含及碰撞拒绝；依赖可选`python-fcl`。
+本次隔离环境`.runtime/collision/venv/bin/python`已具备依赖，具体版本保存在
+`outputs/grasp/live-pick-20261115-02/collision_environment.txt`。该参数不绕过视觉/反馈验收，
+也不提供运动开关。三段纯IK通过仍不代表完整抓取路径或真机执行通过。
+
+`plan_visual_grasp.py`现在默认连接`GraspSceneCollision`：机器人用原URDF局部包围盒，
+箱体用原CAD材料体素（5mm），保留开放空腔；不将整个箱体外包围盒填成实体。
+同一刚体和直接关节连接的刚体组按拓扑排除内部相交；三轮采用覆盖任意转角的球包络外接盒，
+没有虚构轮子反馈角。每个待执行关节段还会从实测起点重新检查碰撞，拒绝沿用已失效的检查结果。
+当前检查只覆盖机器人和选定箱体，不代表周边环境/实物注册已验收。`--kinematics-only`只生成
+离线IK诊断，不赋予执行权限。最新报告见`outputs/grasp/pipeline-20261113/flow-current/plan/report.html`。
+
+
+## 2026-11-15 当前现场运行入口：复用已有资源、笔记本关节流
+
+用户已明确确认：复用已有外参、箱体CAD抓取规则和夹爪定位逻辑，先看效果，不要求重新验收。
+当前`grasp_execution.json`选择`resource_policy=user_confirmed_reuse`，这些历史验收状态仅记录到
+`grasp_readiness.json.resource_warnings`，不再阻断演示；原资源文件中的标记和数值不伪改。
+
+在笔记本仓库执行：
+
+```bash
+cd /home/luxi/qingyue/wheel-robot
+bash tools/grasp/run_current_visual_grasp.sh check  # 只读视觉检查
+bash tools/grasp/run_current_visual_grasp.sh align  # 仅对准，不执行后续开合
+bash tools/grasp/run_current_visual_grasp.sh grasp  # 对准→张开→下插→闭合→10mm试抬
+```
+
+三种入口均复用现有现场外参副本（同一个已选矩阵及升降补偿）、已选箱子ROI、CAD与规则。
+腕端目标到雅可比/限速均在笔记本内部完成；经有线UDP18034发送连续关节参考。
+真机已部署joint_stream v1并返回图像门限2000ms。现有板端适配器周期10ms；
+驱动器内部伺服频率没有在这次工作中实测，不将其写成已实现1kHz。
+
+夹爪直接使用真实SDK已配置的open/closed端点及原POS_FORCE限流控制，
+不再要求另外提供一份接触策略文件，不改真机电流限制。
+闭合过程中先停止的一侧保持，另一侧继续闭合；这里只报告实测闭合/受阻状态，
+最终效果由10mm试抬后箱体是否随动判断，不把到达闭合0位当作抓箱成功。
+既有10mm导轨停止净空与5mm不确定性余量保留；下插最大行程200mm对应当前180mm箱体，
+替代旧40mm临时调试边界，仍受实际关节限位与下插超越检查约束。
+
+固定升降图像配对只把该帧实际前后样本用于间隔检查，较早样本用于确认高度/速度稳定，
+避免旧采样缺口反复否决新图。图像仍按原始时间戳2s过期；关节反馈/断流150ms、
+权限心跳500ms、原限位和跟随保护均保留。当前复用模式使用头部箱沿深度、
+同期实测关节角与既有夹爪几何计算下插净空；strict模式才要求腕部50ms关节配对。
+RGB/depth同设备时间差仍最多250ms。运行时图像质量不良、深度缺失、目标丢失、
+控制权变化和SDK故障仍会停止，不因复用资源而放行这些真实错误。
+
+每次执行打印新目录`outputs/grasp/visual-grasp-runs/时间-随机值/`，包括：
+
+- `execution.log`：每次结束后自动生成的可读执行日志。该入口指向同目录`run/execution.log`，
+  开头直接给出结果、停止位置、触发原因和SDK首个观测停止原因；随后按时间排列执行逻辑、
+  模型加载/准备/状态机各阶段耗时、逐帧视觉耗时、IK与100Hz统计、停止回执和异常栈。
+  无须事后手动运行统计命令。正常结束、Python异常或退出码130的中断退出均会汇总；
+  即使在模型加载前失败，入口脚本退出处理仍会生成日志并保留原失败退出码。
+- `launch.json`与`process_exit.json`：本次模式、启动时间及入口退出码。历史记录缺少退出码时
+  显示未记录，不从成功/失败结果臆造进程退出码。
+- `console.log`与`run/summary.json`：原始输出、完整异常栈、结果、停止回执及最终实测状态。
+- `run/grasp/execution.json`：抓取状态机阶段。
+- `run/execution_trace/events.jsonl`：资源指纹、运行ID、事件序号、图像及目标、SDK请求/回执、
+  高频关节参考、实测角/速度/力矩、板端接收序号和故障原因。
+- `run/execution_trace/frames/*.multipart`：包括被拒绝帧在内的解压后原始RGB-D multipart，
+  对应事件记录原HTTP头、长度和SHA256；回放时直接解multipart，不再次按压缩头解压。
+
+高频线程只入有界队列，独立线程写盘。日志失败停止发送，按归属停止自己的请求；
+停止命令不依赖日志可用。UDP发送与板端真正接收分开记录。
+`strict`策略保留给需要正式验收门槛的其他部署，不是本次用户确认的现场模式。
+
+完整抓取状态机向同一事件流记录进入对准、张开、下插、闭合、试抬和停止的时间。
+高频回路出错时另存`reference_loop_failed.detail.failed_tick`，记录失败当次dt、处理阶段、
+目标、反馈与图像年龄，覆盖尚未生成`reference_send_attempt`就抛出异常的情况。
+可读日志在运动线程退出后汇总，不在100Hz回路里同步生成或打印。
+如果原始事件末行未写完，汇总器保留其余记录并指出损坏行；没有证据时明确写未记录。
+
+历史或异常断电后的日志可只读重建：
+
+```bash
+python3 tools/grasp/execution_log.py \
+  --run outputs/grasp/visual-grasp-runs/20261115T133207Z-2sJ1lp/run
+```
+
+对准的完整IK在独立进程低频求解，100Hz线程使用已求出的目标并限制关节速度、
+加速度与实测跟随误差；等待新IK时保留旧图原始时间戳，不延长其2s有效期。
+`/api/stream_state`返回各主题的原始接收时间，避免等待低频状态主题拖慢反馈读取。
+
+2026-11-15实机已多次进入对准，尚未完成完整抓取。最近一次记录
+`outputs/grasp/visual-grasp-runs/20261115T133207Z-2sJ1lp/run/`显示主机生成217个参考、
+板端只接受到203；反馈本身仍新鲜。SDK接收器误把参考与滞后的内部插值输出比较，
+导致合法连续参考被丢弃，最终显示反馈超时。修正候选改为检查相邻已接收参考的跳变，
+首包仍检查当前位置，实际板端输出仍独立限制速度、加速度和原始关节限位。
+候选验证通过与实际部署记录需分别核对，不能将软件测试当作已经抓箱。
+
+2026-11-16按用户明确指示，左右J7在真机SDK中统一使用固定±52°运行限位
+（±0.9075712110370514rad），不设置相邻腕姿态关联的范围。当前视觉IK和100Hz参考回路
+直接读取SDK报告的限位，保留已有内侧减速余量；原URDF几何、关节零点和外参保持。
+现场指令与部署记录见`config/robots/calibration/wrist_camera_interference_20261116.json`，
+修改日志在`outputs/grasp/visual-grasp-runs/20261116T014656Z-j7-limit52/execution.log`。
+
+### 执行耗时统计
+
+下面命令只分析日志，不连接真机或发送运动命令：
+
+```bash
+.venv/bin/python tools/grasp/summarize_execution_timing.py \
+  outputs/grasp/visual-grasp-runs/*/run \
+  --output outputs/grasp/timing-analysis-20261115
+```
+
+输出`report.md`和`timing.json`，按运行/请求分别计算视觉处理、发送间隔、SDK往返和中断原因。
+同一pair重复取图时只匹配质量事件之前的响应；不同运动会话之间的暂停不计入发送间隔。
+旧日志的正文到质量事件包含解码、预处理、分割、位姿和质量检查，不能标成纯模型推理时间；
+图像年龄还包含上游等待与传输，也不是识别耗时。
+
+当前入口新增`vision_quality.detail.timing_s`，分别记录取图解码、预处理、分割与深度处理、
+位姿注册/跟踪及质量检查；`pose_mode`区分首帧与连续跟踪。实际结果返回CPU数组后才计时，
+不是仅记录CUDA异步提交。`alignment_endpoint_ik.detail.solver.solve_wall_s`记录完整IK求解，
+`reference_sent`新增`udp_send_s`和`compute_to_send_s`。不改变运动参数、图像原时间戳或控制周期。
+
+只读实时采样可使用原`check`入口。它能测视觉，不会生成运动参考；关节发送间隔必须使用
+既有真实运动日志，不能把只读采样中的零条指令当成回路卡顿。没有逐包板端到达时间，
+本统计不宣称已测得单向网络延迟或电机驱动器内部伺服周期。
+
+2026-11-16 默认入口更新：`run_current_visual_grasp.sh`默认配置现与
+`run_moveit_visual_grasp.sh`一致，均走板端MoveIt/JTC。启动会输出实际后端；
+网关未就绪则退出并保留日志，不回退笔记本关节流。旧后端仅在显式指定
+`--execution-config config/robots/grasp_execution.laptop-legacy.json`时使用，
+该文件为历史配置，不代表已解决J6实物跟随问题。

@@ -1,0 +1,56 @@
+{
+  "schema": "wheel_gripper_sdk_mapping_source_v1",
+  "sdk_host": "192.168.2.199",
+  "sdk_config": "/home/sunrise/.local/share/urdf-wrist-neutral/arms-claw14-wrist-neutral.json",
+  "sdk_config_sha256": "f74b4147a48794583d935b0049de1a90f9957a178b7ac7254a69a634f0e1f0e6",
+  "previous_mapping_sha256": "0fc7b45de277d2e25fd4886394dca486b53bbf391e39a71901cfea3f329b1e50",
+  "evidence": "outputs/grasp/pipeline-20261113/live_gripper_mapping_audit.txt",
+  "offset_semantics_evidence": "outputs/grasp/pipeline-20261113/live_gripper_offset_semantics.txt",
+  "feedback_formula": "SDK position = raw motor angle - SDK offset; raw motor angle = SDK position + SDK offset",
+  "finger_formula": "nominal_CAD_closed_m + 0.044 / 1.0472 * opening_sign * (SDK_feedback_rad - configured_closed_rad)",
+  "direction_evidence": "User confirmed left negative motion opens on 2026-11-02; current live SDK both open references are negative and feedback is at those open targets",
+  "transmission_precision_hardware_accepted": false,
+  "robot_commands_sent": false,
+  "sides": {
+    "left": {
+      "sdk_index": 15,
+      "opening_sign": -1,
+      "configured_open_rad": -0.8261127641718163,
+      "configured_closed_rad": 0.0,
+      "sdk_offset_rad": -0.0036240177004653873,
+      "sdk_limits_rad": [
+        -0.8561127641718164,
+        0.01
+      ],
+      "previous": {
+        "offset_rad": 0.0,
+        "opening_sign": 1,
+        "configured_open_rad": 1.88203686366064,
+        "configured_closed_rad": 0.0,
+        "closed_feedback_rad": 0.0,
+        "closed_displacement_m": 0.012860000208020216,
+        "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement"
+      }
+    },
+    "right": {
+      "sdk_index": 7,
+      "opening_sign": -1,
+      "configured_open_rad": -0.8104722667277026,
+      "configured_closed_rad": 0.0,
+      "sdk_offset_rad": -0.0017166399633783413,
+      "sdk_limits_rad": [
+        -0.8404722667277026,
+        0.01
+      ],
+      "previous": {
+        "offset_rad": 0.0,
+        "opening_sign": -1,
+        "configured_open_rad": -1.0698751987487598,
+        "configured_closed_rad": 0.0,
+        "closed_feedback_rad": 0.0,
+        "closed_displacement_m": 0.012860000208020216,
+        "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement"
+      }
+    }
+  }
+}

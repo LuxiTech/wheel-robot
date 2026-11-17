@@ -1,0 +1,19 @@
+[Unit]
+Description=Wheel MoveIt planning and inactive ros2_control SDK bridge
+After=network-online.target luxi-openarm-monitor.service
+Requires=luxi-openarm-monitor.service
+
+[Service]
+Type=simple
+User=sunrise
+WorkingDirectory=/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/work/moveit-integration-20261116
+ExecStart=/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/work/moveit-integration-20261116/run_stack.sh
+LimitRTPRIO=60
+LimitMEMLOCK=infinity
+KillSignal=SIGINT
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

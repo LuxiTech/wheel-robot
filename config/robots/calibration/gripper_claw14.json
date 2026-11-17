@@ -4,22 +4,30 @@
   "source": "https://github.com/enactic/openarm_ros2/pull/49/files",
   "sides": {
     "left": {
-      "offset_rad": 0.0,
-      "opening_sign": 1,
-      "configured_open_rad": 1.88203686366064,
+      "offset_rad": -0.0036240177004653873,
+      "opening_sign": -1,
+      "configured_open_rad": -0.8261127641718163,
       "configured_closed_rad": 0.0,
       "closed_feedback_rad": 0.0,
       "closed_displacement_m": 0.012860000208020216,
-      "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement"
+      "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement",
+      "sdk_limits_rad": [
+        -0.8561127641718164,
+        0.01
+      ]
     },
     "right": {
-      "offset_rad": 0.0,
+      "offset_rad": -0.0017166399633783413,
       "opening_sign": -1,
-      "configured_open_rad": -1.0698751987487598,
+      "configured_open_rad": -0.8104722667277026,
       "configured_closed_rad": 0.0,
       "closed_feedback_rad": 0.0,
       "closed_displacement_m": 0.012860000208020216,
-      "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement"
+      "closed_displacement_source": "CAD contact/lower-limit approximation, not physical displacement measurement",
+      "sdk_limits_rad": [
+        -0.8404722667277026,
+        0.01
+      ]
     }
   },
   "closed_reference_source": "User approximate reference: SDK reading near zero when gripper closed; small error possible",
@@ -35,6 +43,7 @@
   "model_source": "config/robots/r680_lift_openarm_claw1.4.source.json",
   "inherited_from": "config/robots/calibration/gripper_v1.json",
   "limitations": [
-    "Inherited transmission unchanged. Left opening_sign=+1 still contradicts confirmed negative opening; do not treat this mapping as accepted."
-  ]
+    "SDK direction/open/closed/offset fields synchronized from actual running config. Existing transmission ratio and nominal CAD closed displacement remain approximate and not hardware precision accepted."
+  ],
+  "deployment_source": "config/robots/calibration/gripper_claw14.source.json"
 }

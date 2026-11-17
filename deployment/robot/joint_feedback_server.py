@@ -8,6 +8,7 @@ Monotonic timestamps stay in the robot clock domain; clients add request RTT.
 import argparse
 import copy
 import json
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,12 +22,12 @@ class StateCache:
         self.mock = None
         self.checked_ns = 0
 
-    def snapshot(self):
+    def snapshot(self, *, pair_topics=True):
         with self.updated:
             # Topics arrive independently. Wait briefly for a current pair instead
             # of returning mismatched samples or weakening the client's checks.
             deadline = time.monotonic() + 0.08
-            while self.arms is not None and self.startup is not None:
+            while pair_topics and self.arms is not None and self.startup is not None:
                 now = time.monotonic_ns()
                 arm_time = int(self.arms["receive_mono_ns"])
                 startup_time = int(self.startup["receive_mono_ns"])
@@ -53,6 +54,7 @@ class StateCache:
             arm_startup=startup,
             system=dict(mock=mock if verified else None),
             feedback_source="ros_joint_feedback_v1",
+            topic_pairing="bounded_pair" if pair_topics else "independent_receive_monotonic",
         )
 
 
@@ -61,12 +63,15 @@ def make_server(cache, host, port):
         def setup(self):
             super().setup()
             self.connection.settimeout(2)
+            self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         def do_GET(self):
-            if self.path != "/api/state":
+            if self.path not in ("/api/state", "/api/stream_state"):
                 self.send_error(404)
                 return
-            body = json.dumps(cache.snapshot(), allow_nan=False).encode()
+            body = json.dumps(
+                cache.snapshot(pair_topics=self.path == "/api/state"), allow_nan=False
+            ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")

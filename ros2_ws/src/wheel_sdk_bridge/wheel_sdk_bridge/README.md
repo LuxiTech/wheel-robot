@@ -1,5 +1,9 @@
 # wheel_sdk_bridge
 
+`trajectory_client.py`提供SDK协议v1的完整16轴路径提交和带请求ID的停止，沿用HTTP网关和
+独立实测反馈通道。完整路径只POST一次；中间点不等到位。保留原关节限位、夹爪保持值和
+写入回执不确定时不重试的语义。必须从实时状态读到`trajectory_protocol=1`才允许提交。
+
 厂商协议的唯一适配边界。sdk.py 处理升降映射、关节反馈和租期；feedback.py 对齐实测状态；ros_state/rgbd_ros 是只读 ROS 入口。厂商 SDK 本体不在本仓库。ROS main 需要板端 luxi_interfaces。 本目录只放 Python 实现；安装和 ROS 元数据位于上级。
 
 ## 文件与子目录
@@ -78,3 +82,10 @@ SDK 在检查姿势稳定后原地使能并执行目标；默认 False，避免�
 任务进度监测单独识别 SDK 既有的 500 ms 健康窗口和最多 2 秒锁闸启动准备窗口；
 此时只返回未完成状态，不把无效位置用于到位确认。motion_inhibited 或驱动故障立即报错，
 不会进入无效样本等待或自动重试运动。
+
+## 笔记本关节流接口
+
+`joint_stream_client.JointStreamClient`为`joint_stream_protocol=1`发送100Hz目标关节参考。
+HTTP只用于显式开始/归属停止，数据采用固定336字节UDP；保留真实图像和反馈时间戳，
+不重传、不积压旧参考。旧`joint_move`的端点语义不变。
+协议和独立板端候选准备见[`deployment/robot/joint_stream/README.md`](../../../../deployment/robot/joint_stream/README.md)。

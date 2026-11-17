@@ -105,3 +105,17 @@ def test_missing_topic_update_returns_mismatch_for_client_to_reject():
     assert 0.06 <= elapsed < 1
     assert snapshot["arms"]["receive_mono_ns"] == str(now)
     assert snapshot["arm_startup"]["receive_mono_ns"] == str(now - 50_000_000)
+
+
+def test_stream_route_returns_new_arm_sample_without_waiting_for_slow_status(monkeypatch):
+    cache = server_module.StateCache()
+    now = time.monotonic_ns()
+    cache.arms = dict(receive_mono_ns=str(now), position=[0.3] * 16)
+    cache.startup = dict(receive_mono_ns=str(now - 90_000_000), phase="streaming")
+    monkeypatch.setattr(
+        cache.updated, "wait", lambda *args: pytest.fail("Fast feedback must not wait")
+    )
+    snapshot = cache.snapshot(pair_topics=False)
+    assert snapshot["arms"]["receive_mono_ns"] == str(now)
+    assert snapshot["arm_startup"]["receive_mono_ns"] == str(now - 90_000_000)
+    assert snapshot["topic_pairing"] == "independent_receive_monotonic"

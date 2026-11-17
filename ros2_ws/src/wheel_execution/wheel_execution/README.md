@@ -1,5 +1,11 @@
 # wheel_execution
 
+当前抓取组合入口默认读取`config/robots/grasp_execution.json`，选择`TwoStageGraspExecutor`和
+`SDKTrajectoryDriver`：上方对准、连续下插抓取两段主运动，内部路径点一次提交给板端SDK插补；
+只在段末验位并做最多两次有界矫正。腕部停止与载荷反馈仍在运动期间读取，闭合和试抬继续分别确认。
+没有SDK轨迹协议v1时不会退回逐点发送。当前板端运行版本与候选的状态须分别核实；
+准备、测试和上线说明见`deployment/robot/joint_trajectory/README.md`。
+
 真机操作执行边界。executor.py 保留运输、规划、预抓取、接近、夹持验证、试抬、放置与保持接口。ready=False，尚未接通厂商轨迹执行。后续由本包统一管理动作反馈与取消。 本目录只放 Python 实现；安装和 ROS 元数据位于上级。
 
 ## 文件与子目录
@@ -83,3 +89,34 @@ result = executor.execute(plan["plan_id"], scene_clear=True)
 记录：`outputs/ik_control/recheck_live_20261030/` 与 `outputs/ik_control/recheck_telemetry_20261030.jsonl`。
 这是一次有界、分阶段的联合端点执行验收，不是同步轨迹或外部量具精度验收。
 此前发现的固件候选修正未部署，不能据这次通过宣称原固件缺陷已修复。
+
+## 定点视觉抓取组合入口
+
+当前仓库配置选择`laptop_visual_servo`：`LaptopVisualServoDriver`在笔记本独立10ms线程中
+生成关节参考，`JointStreamClient`通过UDP发送，视觉推理和HTTP反馈不占用此循环。
+状态机仍是对准→张开→下插→接触闭合→10mm试抬→箱体随动确认；只在阶段边界停稳。
+`pure_visual_servo`保留为原板端IK方案，`two_stage`为完整轨迹候选，均需显式选择对应接口。
+板端关节流缺失时先拒绝，不用逐点`joint_move`代替。构建、协议、时效与验收范围见
+[`deployment/robot/joint_stream/README.md`](../../../../deployment/robot/joint_stream/README.md)。
+
+`stationary_pick.create_stationary_pick(...)`将实时视觉目标源、`VisualGraspPlanner`、
+SDK执行器、双腕RGB-D停止源、夹持接触控制和视觉试抬验证组合为一次定点抓取。
+显式选择`two_stage`时，`TwoStageGraspExecutor.run(target_id)`保留当前开合状态，一次提交净空、平移/转向和
+上方对准的完整路径；段末确认并重新观察后，完整张开、连续下插、闭合。
+`SDKGripperOpener`保留手臂目标，双侧开到位后才开始连续下插；夹爪闭合提交完整目标，
+接触时停止，允许先后到达的双爪分别保持。导轨停止连续三帧确认后，双侧接触闭合→10mm试抬→箱体随动确认。
+对准位置按当前至张开范围内整个夹爪的最低点留出30mm箱沿净空，不再按导轨高度上移30mm。
+下探总试验界限默认仍为40mm；超过时在对准动作前拒绝，不自动加深。碰撞策略由
+执行配置显式决定；当前用户现场试验选择跳过，其他部署默认要求连续曲线检查器。
+异常只停止本地拥有的请求并保持可能的负载；不回零、不停升降、不自动松爪，不自动重试载荷状态。
+
+导轨停止高度由原CAD负X下表面计算，绝非SDK腕端原点。当前外参/夹爪资源的候选状态和源质量
+始终随视觉目标传递；缺少已验收的实时数据或夹持策略时，不会启用运动。
+定点抓取组合的软件测试通过不等于真机提箱验收。原移动运输/放置边界不因此标记ready。
+
+旧`StationaryGraspExecutor`和逐点`SDKWaypointDriver`仅在显式选择`legacy_waypoints`时使用，
+不与新两段执行的到位、停止和纠偏语义混用。
+
+场景检查实现`wheel_motion_core.grasp_scene.GraspSceneCollision`可接入上述组合，覆盖机器人与
+选定CAD箱体；每次视觉更新须update_target，每个规划/执行关节段按当前反馈刷新开合并复查。
+它明确报告尚未认证的周边场景及开合精度，不能仅因局部几何返回无相交就启用整机执行。

@@ -8,6 +8,12 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/wheel_execution"]),
         ("share/wheel_execution", ["package.xml", "README.md"]),
     ],
-    install_requires=["setuptools", "wheel-sdk-bridge>=0.3.0", "wheel-planning>=0.3.0"],
+    install_requires=[
+        "setuptools",
+        "wheel-sdk-bridge>=0.3.0",
+        "wheel-planning>=0.3.0",
+        "wheel-motion-core>=0.3.0",
+        "wheel-perception-core>=0.3.0",
+    ],
     entry_points={"console_scripts": []},
 )

@@ -101,6 +101,37 @@ def test_depth_semantics_not_silently_certified():
     assert not mask_quality(np.ones((24, 32), bool), np.zeros((24, 32)))["accepted"]
 
 
+@pytest.mark.parametrize("skew_ms", [0, 100, 300, 1040000])
+@pytest.mark.parametrize("max_age_ms", [250, 2000])
+def test_fresh_pair_cannot_hide_frozen_rgb(monkeypatch, skew_ms, max_age_ms):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    from wheel_perception_core import rgbd
+
+    observation = decode(*packet())
+    domain = "host_receive_device_unmapped:Global Time"
+    observation.metadata["color"].update(
+        timestamp_quality=domain, device_timestamp_ns="1794710347972134400"
+    )
+    observation.metadata["depth"].update(
+        timestamp_quality=domain,
+        device_timestamp_ns=str(1794710347972134400 + int(skew_ms * 1e6)),
+    )
+    response = SimpleNamespace(
+        headers={"Content-Type": "unused", "X-Pair-Id": observation.key[1]},
+        read=lambda size: b"unused",
+    )
+    monkeypatch.setattr(rgbd, "urlopen", lambda *args, **kwargs: nullcontext(response))
+    monkeypatch.setattr(rgbd, "decode", lambda *args: observation)
+    client = rgbd.RGBDClient("http://unused", max_age_ms=max_age_ms)
+    if skew_ms > 250:
+        with pytest.raises(ValueError, match="device timestamps disagree"):
+            client.receive("head_rgb")
+    else:
+        assert client.receive("head_rgb") is observation
+
+
 def test_rim_points_follow_object_transform():
     t = np.eye(4)
     t[:3, :3] = Rotation.from_euler("z", 0.6).as_matrix()

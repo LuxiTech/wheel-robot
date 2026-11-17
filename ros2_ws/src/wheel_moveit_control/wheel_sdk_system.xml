@@ -1,0 +1,5 @@
+<library path="wheel_sdk_system">
+  <class name="wheel_moveit_control/SDKSystem" type="wheel_moveit_control::SDKSystem" base_class_type="hardware_interface::SystemInterface">
+    <description>Owned SDK stream, measured ROS feedback, no direct CAN access or implicit motor enable.</description>
+  </class>
+</library>

@@ -71,6 +71,7 @@ class GraspPipeline:
         self.last_key = None
         self.target = None
         self.last_time = None
+        self.tracked_box = None
 
     def stage(self, name):
         return self.trace.stage(name) if self.trace else nullcontext()
@@ -89,6 +90,16 @@ class GraspPipeline:
             if not target_id:
                 raise ValueError("Explicit target identity required")
             self.emit("preprocess", inp=inp)
+        identity = (observation.key[0], target_id)
+        can_track = (
+            track
+            and identity == self.target
+            and self.last is not None
+            and self.last_time is not None
+            and time.monotonic() - self.last_time < 0.5
+        )
+        if can_track and box is None:
+            box = self.tracked_box
         with self.stage("detection"):
             candidates = self.segmenter.detect(inp.rgb) if box is None else []
             self.emit("detection", inp=inp, candidates=candidates, box=box)
@@ -114,14 +125,6 @@ class GraspPipeline:
             if not quality["accepted"]:
                 self.target = None
                 raise ValueError("Target depth quality rejected: " + str(quality))
-        identity = (observation.key[0], target_id)
-        can_track = (
-            track
-            and identity == self.target
-            and self.last is not None
-            and self.last_time is not None
-            and time.monotonic() - self.last_time < 0.5
-        )
         try:
             with self.stage("pose"):
                 t = pose(
@@ -163,6 +166,15 @@ class GraspPipeline:
         self.target = identity
         self.last_key = observation.key
         self.last_time = time.monotonic()
+        yy, xx = np.where(mask)
+        self.tracked_box = np.array(
+            [
+                max(0, xx.min() - 16),
+                max(0, yy.min() - 16),
+                min(inp.rgb.shape[1], xx.max() + 17),
+                min(inp.rgb.shape[0], yy.max() + 17),
+            ]
+        )
         return dict(
             target_id=target_id,
             pair_id=observation.key[1],

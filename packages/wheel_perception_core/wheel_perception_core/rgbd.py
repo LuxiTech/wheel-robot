@@ -2,17 +2,39 @@
 
 import json
 import time
+import zlib
 from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import cv2
 import numpy as np
 
 MAX_BODY = 24 * 1024 * 1024
 CAMERAS = {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"}
+
+
+def decompress_body(body, encoding, headers=None):
+    if not encoding:
+        return body
+    if encoding == "x-lz4-block":
+        from wheel_perception_core.lossless import decompress
+
+        if headers is None:
+            raise ValueError("Lossless RGB-D length/checksum headers required")
+        decoded = decompress(body, int(headers["X-Uncompressed-Bytes"]), MAX_BODY)
+        if zlib.crc32(decoded) != int(headers["X-Uncompressed-CRC32"]):
+            raise ValueError("Lossless RGB-D checksum mismatch")
+        return decoded
+    if encoding != "gzip":
+        raise ValueError("Unsupported RGBD content encoding")
+    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    decoded = decoder.decompress(body, MAX_BODY + 1)
+    if len(decoded) > MAX_BODY or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+        raise ValueError("Invalid or oversized lossless RGBD body")
+    return decoded
 
 
 @dataclass
@@ -144,10 +166,17 @@ class RGBDClient:
         if camera not in CAMERAS:
             raise ValueError("Unknown camera")
         start = time.monotonic()
-        with urlopen(
-            self.base_url + "/api/cameras/" + camera + "/rgbd", timeout=self.timeout
-        ) as response:
-            body = response.read(MAX_BODY + 1)
+        request = Request(
+            self.base_url + "/api/cameras/" + camera + "/rgbd",
+            headers={"Accept-Encoding": "x-lz4-block, gzip"},
+        )
+        with urlopen(request, timeout=self.timeout) as response:
+            wire_body = response.read(MAX_BODY + 1)
+            if len(wire_body) > MAX_BODY:
+                raise ValueError("RGBD response exceeds size limit")
+            body = decompress_body(
+                wire_body, response.headers.get("Content-Encoding", ""), response.headers
+            )
             if self.on_response is not None:
                 self.on_response(dict(response.headers), body)
             obs = decode(response.headers.get("Content-Type", ""), body)
@@ -160,6 +189,20 @@ class RGBDClient:
                 "RGBD observation is stale: pair=%s age_ms=%.1f max_age_ms=%.1f"
                 % (obs.key[1], age, self.max_age_ms)
             )
+        color = obs.metadata["color"]
+        depth = obs.metadata["depth"]
+        domain = color.get("timestamp_quality", "")
+        if domain.endswith(":Global Time") and domain == depth.get("timestamp_quality"):
+            color_stamp = int(color["device_timestamp_ns"])
+            depth_stamp = int(depth["device_timestamp_ns"])
+            if color_stamp <= 0 or depth_stamp <= 0:
+                raise ValueError("Invalid RGB/depth device timestamp")
+            skew_ms = abs(color_stamp - depth_stamp) / 1e6
+            if skew_ms > min(self.max_age_ms, 250):
+                raise ValueError(
+                    "RGB/depth device timestamps disagree: pair=%s skew_ms=%.1f max_age_ms=%.1f"
+                    % (obs.key[1], skew_ms, min(self.max_age_ms, 250))
+                )
         if self.last.get(camera) == obs.key[1]:
             raise ValueError("Duplicate RGBD pair")
         self.last[camera] = obs.key[1]

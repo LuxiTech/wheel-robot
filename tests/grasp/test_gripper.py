@@ -39,3 +39,43 @@ def test_confirmed_sdk_closed_zero_is_independent_of_raw_motor_offset():
         )
         assert r["estimated_finger_displacement_m"] == pytest.approx(0.01286)
         assert r["within_urdf_limits"]
+
+
+def test_selected_mapping_matches_recorded_live_sdk_opening_and_closed_anchor():
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    mapping = json.loads((root / "config/robots/calibration/gripper_claw14.json").read_text())
+    source = json.loads((root / mapping["deployment_source"]).read_text())
+    for side in ("left", "right"):
+        config = mapping["sides"][side]
+        recorded = source["sides"][side]
+        assert config["opening_sign"] == recorded["opening_sign"] == -1
+        assert config["configured_open_rad"] == recorded["configured_open_rad"]
+        assert config["offset_rad"] == recorded["sdk_offset_rad"]
+        assert (
+            config["sdk_limits_rad"][0]
+            <= config["configured_open_rad"]
+            <= config["sdk_limits_rad"][1]
+        )
+        closed = finger_displacement(
+            config["closed_feedback_rad"],
+            offset_rad=config["offset_rad"],
+            opening_sign=config["opening_sign"],
+            bounds=(0.01286, 0.044),
+            closed_feedback_rad=config["closed_feedback_rad"],
+            closed_displacement_m=config["closed_displacement_m"],
+        )
+        opened = finger_displacement(
+            config["closed_feedback_rad"] - 0.1,
+            offset_rad=config["offset_rad"],
+            opening_sign=config["opening_sign"],
+            bounds=(0.01286, 0.044),
+            closed_feedback_rad=config["closed_feedback_rad"],
+            closed_displacement_m=config["closed_displacement_m"],
+        )
+        assert closed["estimated_finger_displacement_m"] == config["closed_displacement_m"]
+        assert opened["estimated_finger_displacement_m"] > closed["estimated_finger_displacement_m"]
+        assert closed["raw_motor_rad"] == config["closed_feedback_rad"] + config["offset_rad"]
+    assert mapping["hardware_validated"] is False

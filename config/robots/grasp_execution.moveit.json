@@ -1,0 +1,20 @@
+{
+  "schema": "wheel_grasp_execution_v1",
+  "execution_mode": "moveit_trajectory",
+  "resource_policy": "user_confirmed_reuse",
+  "resource_policy_source": "User explicitly confirmed reusing the existing extrinsics, grasp rules and gripper localization for an onsite demonstration without further acceptance gates, 2026-11-15",
+  "max_insertion_m": 0.2,
+  "rail_stop_clearance_m": 0.01,
+  "rail_uncertainty_m": 0.005,
+  "collision_policy": "required",
+  "collision_policy_source": "MoveIt checks full robot and selected crate geometry.",
+  "image_max_age_s": 2.0,
+  "visual_max_p95_depth_error_m": 0.025,
+  "speed_rad_s": 0.2,
+  "acceleration_rad_s2": 0.5,
+  "endpoint_settle_timeout_s": 2.0,
+  "max_endpoint_corrections": 2,
+  "endpoint_position_tolerance_m": 0.005,
+  "endpoint_angle_tolerance_rad": 0.02,
+  "moveit_gateway_url": "http://127.0.0.1:18036"
+}

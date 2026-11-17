@@ -201,6 +201,35 @@ def test_separate_feedback_channel_never_falls_back_and_commands_stay_on_sdk():
     assert len(command.posts) == 1
 
 
+@pytest.mark.parametrize("age_ms,accepted", [(90, True), (149, True), (151, False)])
+def test_stream_feedback_retains_independent_timestamps_and_150ms_status_lease(age_ms, accepted):
+    from types import SimpleNamespace
+
+    sample = state()
+    sample["feedback_source"] = "ros_joint_feedback_v1"
+    sample["topic_pairing"] = "independent_receive_monotonic"
+    sample["arm_startup"]["receive_mono_ns"] = str(1_000_000_000 - age_ms * 1_000_000)
+
+    def receive(method, path):
+        assert method == "GET" and path == "/api/stream_state"
+        return copy.deepcopy(sample)
+
+    reader = JointClient(
+        "http://unused",
+        dict(
+            feedback_url="http://feedback",
+            feedback_path="/api/stream_state",
+            feedback_max_age_s=0.15,
+        ),
+        feedback_transport=SimpleNamespace(request=receive),
+    )
+    if accepted:
+        assert reader.snapshot()["arms"]["receive_mono_ns"] == "999000000"
+    else:
+        with pytest.raises(SDKError, match="stale"):
+            reader.snapshot()
+
+
 def test_rejected_raw_feedback_and_timing_are_saved(tmp_path):
     t = Transport()
     t.s["arm_startup"]["receive_mono_ns"] = "500000000"

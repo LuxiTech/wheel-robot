@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>wheel_moveit_control</name><version>0.1.0</version>
+  <description>MoveIt planning and ros2_control execution through the owned LUXI SDK stream.</description>
+  <maintainer email="dev@luxitech.local">LuxiTech</maintainer><license>Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>hardware_interface</depend><depend>pluginlib</depend><depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend><depend>std_msgs</depend><depend>sensor_msgs</depend>
+  <depend>luxi_interfaces</depend><depend>nlohmann_json</depend>
+  <depend>moveit_ros_planning_interface</depend><depend>moveit_core</depend>
+  <exec_depend>controller_manager</exec_depend><exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend><exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend><exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>moveit_kinematics</exec_depend><exec_depend>launch_ros</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>shape_msgs</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

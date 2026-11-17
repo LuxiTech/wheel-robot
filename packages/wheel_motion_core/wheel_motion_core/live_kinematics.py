@@ -26,6 +26,8 @@ class SDKAlignedModel:
             for i in range(7):
                 name = f"openarm_{side}_joint{i + 1}"
                 spec = self.urdf.joints[name]
+                # SDK发布当前运行限位（如用户指定J7±52°），与原模型名义范围取交集。
+                # 收紧IK范围不改变关节角、轴向或FK几何，也不改写用户提供的原URDF。
                 lo, hi = (
                     max(spec["bounds"][0], lower[start + i]),
                     min(spec["bounds"][1], upper[start + i]),
@@ -77,12 +79,14 @@ class SDKAlignedModel:
                 )
         raise ValueError("Unknown live IK endpoint: " + frame)
 
-    def ik(self):
+    def ik(self, *, position_tolerance_m=0.002):
+        if not np.isfinite(position_tolerance_m) or not 0 < position_tolerance_m <= 0.15:
+            raise ValueError("Position tolerance must be in (0, 150] mm")
         return PairIK(
             self,
             {"left": np.eye(4), "right": np.eye(4)},
             base=self.base,
-            position_tolerance=0.002,
+            position_tolerance=position_tolerance_m,
             angle_tolerance=0.02,
         )
 
