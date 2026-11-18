@@ -582,3 +582,42 @@ python3 tools/grasp/execution_log.py \
 网关未就绪则退出并保留日志，不回退笔记本关节流。旧后端仅在显式指定
 `--execution-config config/robots/grasp_execution.laptop-legacy.json`时使用，
 该文件为历史配置，不代表已解决J6实物跟随问题。
+
+## 视觉流程自动录制 ROS bag
+
+`run_current_visual_grasp.sh` 和 `run_moveit_visual_grasp.sh` 的 `check`、`align`、
+`grasp` 均自动调用 `record_rosbag.py`。先在机器人启动独立 rosbag2 进程，确认
+`/luxi/arms/state` 订阅及 SQLite 文件建立后，再进入网关预检和原有视觉流程。
+录包失败时不启动流程；运行期间录包进程退出时，向本次视觉进程发送 SIGINT，
+由原有退出处理完成停止。录包本身不发送机械臂或升降指令。
+
+录制 ROS domain 0、本机 DDS 中的 `/luxi/*`、`/camera/*`、TF、关节状态、
+`/arm_controller/*`（含隐藏 action 话题）、控制器管理器、规划场景、
+规划轨迹显示、`/rosout` 和 `/diagnostics`。相机话题以实际发布为准，不启动或切换
+相机服务；实际各话题消息数写入录包报告。原有视觉图像、目标和执行日志继续保留。
+ROS bag 不包含原始 UDP/CAN 抓包或控制回调各段耗时，不能单凭它断定150ms停顿的根因。
+
+数据采用 SQLite3，不启用压缩，每个分包约1 GiB。录制进程不运行在SDK控制回调中，
+但相机录制仍会增加板端CPU/磁盘负载，当前尚未进行真机负载验证。
+流程结束或 Ctrl+C 后发送 SIGINT 关闭录包并生成 metadata，检查关节消息非空，
+再取回本次本地目录；SSH心跳中断超过10秒时板端自行结束录制。
+下载失败保留板端原件，并将本轮退出状态标为失败；不自动删除录包。
+
+- 本地：`outputs/grasp/visual-grasp-runs/<运行ID>/rosbag/download/bag/`
+- 本地录包结果及消息数：`rosbag/download/report.json`
+- 本地连接/下载结果：`rosbag/session.json`
+- 板端：`<SDK根目录>/data/visual-grasp-runs/<运行ID>/rosbag/`
+
+SSH认证复用正常SSH配置或交互密码，不保存密码。可通过 `WHEEL_ROBOT_SSH` 更改
+连接目标，通过 `WHEEL_ROBOT_SDK_ROOT` 更改SDK根目录。默认目标为
+`sunrise@192.168.2.199`，默认SDK根目录为
+`/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2`。
+
+仍使用原入口命令，无需另开录包终端。仅验证录包接入时使用只读模式：
+
+```bash
+bash tools/grasp/run_current_visual_grasp.sh check
+```
+
+2026-11-17：本地模拟验证覆盖流程成功/失败、启动拒绝、录制中断、SIGTERM与连接关闭。
+真机SSH当前不可达，未执行真机录包或抓取，实际话题覆盖和资源负载需联网只读验证。

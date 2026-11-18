@@ -67,10 +67,17 @@ for ((index=0; index<${#extra_args[@]}; index++)); do
 done
 execution_mode=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["execution_mode"])' "$execution_config")
 printf 'Execution backend: %s\nExecution config: %s\n' "$execution_mode" "$execution_config" | tee -a "$run_parent/console.log"
-if [[ "$execution_mode" == moveit_trajectory ]]; then
-    bash tools/grasp/ensure_moveit_gateway.sh 2>&1 | tee -a "$run_parent/console.log"
-fi
-"$vision_python" "$entry" \
+# 先确认板端ROS bag录制就绪，覆盖网关预检、视觉准备及完整执行/停止过程。
+python3 tools/grasp/record_rosbag.py --output "$run_parent/rosbag" -- \
+    bash -c '
+        set -e
+        backend=$1
+        shift
+        if [[ "$backend" == moveit_trajectory ]]; then
+            bash tools/grasp/ensure_moveit_gateway.sh
+        fi
+        exec "$@"
+    ' bash "$execution_mode" "$vision_python" "$entry" \
     --calibration "$calibration" \
     --cad-preview "$preview" \
     --output "$run_parent/run" \

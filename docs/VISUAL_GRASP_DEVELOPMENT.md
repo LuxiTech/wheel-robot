@@ -1,5 +1,22 @@
 # 视觉抓取开发依据与核查要求
 
+## 2026-11-18 网页关节控制兼容 ACT 版 SDK 补偿范围标记
+
+通过密码 SSH 直接核对真机当前进程 PID 1547、arms-kh.json 启动路径及
+Project/device_adapters/src/openarm_adapter.cpp。源码 SHA256 为
+e0a872fd3ecd80355f0bd053d845b501c20b33f685b0e8f0e1aea674e53b9132，
+运行二进制 /proc/1547/exe SHA256 为
+e4d5fa52f23ed5bb9b4734c874e67ab93a4651b29affa1c5a8a07fcb0bfd5be7。
+SDK 新发布 scope=non_act_control_modes：joint_move 仍从 nominal_sent_ 接管，
+普通使能且无故障时保留补偿，并设置 act_raw_=false；输出仅在 act_raw_ 为真时
+绕过 compensation_.apply。ACT 持权时 SDK 拒绝普通控制接管。
+
+客户端兼容原 all_control_modes 及新 non_act_control_modes；新标记额外要求
+act.raw_post_compensation=false，未知标记或缺少该反馈仍拒绝。
+原补偿范围、夹爪无补偿、目标输出一致性、限位及故障检查保留。
+真机只读 snapshot 与补偿交接检查通过，未发送运动、使能或修改 SDK。
+此项仅验证接口兼容，不代表实物运动或抓取验收。
+
 记录日期：2026-10-30。本文记录用户明确要求，供后续开发者和 AI 助手在开始相关任务前阅读。
 
 ## 目标与基本原则

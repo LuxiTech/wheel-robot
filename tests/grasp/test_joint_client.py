@@ -310,7 +310,7 @@ def test_400ms_limit_includes_request_and_per_joint_age(
     assert not t.posts
 
 
-def compensated_client():
+def compensated_client(scope="all_control_modes"):
     t = Transport()
     b = t.s["arm_startup"]
     b.update(
@@ -318,9 +318,8 @@ def compensated_client():
         nominal_target=[0.0] * 16,
         support_target=[0.05] * 7 + [0.0] + [0.05] * 7 + [0.0],
         static_compensation_rad=[0.05] * 7 + [0.0] + [0.05] * 7 + [0.0],
-        static_compensation=dict(
-            scope="all_control_modes", arm_joints_enabled=True, grippers_enabled=False
-        ),
+        static_compensation=dict(scope=scope, arm_joints_enabled=True, grippers_enabled=False),
+        act=dict(raw_post_compensation=False),
         manual_pose=dict(fault_latched=False),
     )
     c = JointClient(
@@ -331,8 +330,9 @@ def compensated_client():
     return c, t
 
 
-def test_takeover_preserves_nominal_and_requires_result_before_next_move():
-    c, t = compensated_client()
+@pytest.mark.parametrize("scope", ["all_control_modes", "non_act_control_modes"])
+def test_takeover_preserves_nominal_and_requires_result_before_next_move(scope):
+    c, t = compensated_client(scope)
     result = c.takeover_hold()
     assert result["accepted"]
     detail = json.loads(t.posts[0][1]["detail"])
@@ -346,8 +346,9 @@ def test_takeover_preserves_nominal_and_requires_result_before_next_move():
 @pytest.mark.parametrize(
     "change", ["support", "gripper", "disabled", "fault", "unsettled", "missing_protocol"]
 )
-def test_takeover_refuses_unsafe_or_incompatible_states(change):
-    c, t = compensated_client()
+@pytest.mark.parametrize("scope", ["all_control_modes", "non_act_control_modes"])
+def test_takeover_refuses_unsafe_or_incompatible_states(change, scope):
+    c, t = compensated_client(scope)
     b = t.s["arm_startup"]
     if change == "support":
         b["support_target"][0] = 0.2
@@ -366,10 +367,28 @@ def test_takeover_refuses_unsafe_or_incompatible_states(change):
     assert not t.posts
 
 
-def test_compensated_move_supported_without_motion_policy():
-    c, t = compensated_client()
+@pytest.mark.parametrize("scope", ["all_control_modes", "non_act_control_modes"])
+def test_compensated_move_supported_without_motion_policy(scope):
+    c, t = compensated_client(scope)
     c.move([0.01] * 16)
     assert len(t.posts) == 1
+
+
+@pytest.mark.parametrize(
+    "scope,act",
+    [
+        ("unknown", {}),
+        (None, {}),
+        ("non_act_control_modes", {}),
+        ("non_act_control_modes", {"raw_post_compensation": True}),
+    ],
+)
+def test_compensated_move_rejects_unknown_scope_or_raw_act(scope, act):
+    c, t = compensated_client(scope)
+    t.s["arm_startup"]["act"] = act
+    with pytest.raises(SDKError, match="handover is not validated"):
+        c.move([0.01] * 16)
+    assert not t.posts
 
 
 def test_takeover_changed_nominal_does_not_send():

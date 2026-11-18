@@ -206,9 +206,16 @@ class JointClient:
         if not required and not any(abs(v) > 1e-6 for v in bias):
             return
         meta = b.get("static_compensation") or {}
+        scope = meta.get("scope")
+        # The ACT-capable SDK retains nominal-target compensation for ordinary
+        # control, but bypasses it for raw ACT output. Do not accept that state.
+        compatible_scope = scope == "all_control_modes" or (
+            scope == "non_act_control_modes"
+            and (b.get("act") or {}).get("raw_post_compensation") is False
+        )
         if (
             self.policy.get("compensated_handover_protocol") != "nominal_target_v1"
-            or meta.get("scope") != "all_control_modes"
+            or not compatible_scope
             or meta.get("arm_joints_enabled") is not True
             or meta.get("grippers_enabled") is not False
         ):

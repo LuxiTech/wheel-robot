@@ -63,6 +63,11 @@ def test_wrapper_always_generates_a_log_after_child_failure(tmp_path, exit_code,
     tools.mkdir(parents=True)
     for name in ("execution_log.py", "run_current_visual_grasp.sh"):
         shutil.copy(ROOT / "tools/grasp" / name, tools / name)
+    # Recorder lifecycle is exercised separately without a real SSH connection.
+    (tools / "record_rosbag.py").write_text(
+        "import subprocess, sys\n"
+        "raise SystemExit(subprocess.call(sys.argv[sys.argv.index('--') + 1:]))\n"
+    )
     resources = [
         next(
             line.split("=", 1)[1]

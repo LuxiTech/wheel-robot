@@ -197,6 +197,24 @@ def write_execution_log(run, output=None, exit_code=None):
     ]
     if summary.get("recovered"):
         lines.insert(-2, "后续已恢复：" + str(summary.get("recovery_evidence", "见恢复记录")))
+    recording = load_object(run.parent / "rosbag/session.json")
+    if recording:
+        bag_report = load_object(run.parent / "rosbag/download/report.json")
+        lines.insert(
+            -2,
+            "ROS bag："
+            + json.dumps(
+                {
+                    "remote": f"{recording.get('host')}:{recording.get('remote_path')}",
+                    "local": str(run.parent / "rosbag/download/bag"),
+                    "downloaded": recording.get("downloaded", False),
+                    "complete": bag_report.get("complete", False),
+                    "message_counts": bag_report.get("message_counts", {}),
+                    "error": recording.get("error", bag_report.get("error")),
+                },
+                ensure_ascii=False,
+            ),
+        )
     timeline = []
     initialization = kinds["runtime_initialization"]
     if initialization:
